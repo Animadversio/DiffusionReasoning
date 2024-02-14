@@ -98,7 +98,7 @@ def train_data2attr_tsr(train_input):
     return attr_tsr
 
 
-def onehot2attr_tsr(samples, dim=10):
+def onehot2attr_tsr(samples, dim=10, threshold=0.4):
     """Turn one-hot tensor to attribute tensor
     Input:
         samples: shape (batch, 27, n_row, n_col)
@@ -107,10 +107,10 @@ def onehot2attr_tsr(samples, dim=10):
         attr_tsr: shape (batch, 3, n_row, n_col)
     """
     attr0_onehot, attr0 = samples[:,  0:7].max(dim=1)
-    attr0[attr0_onehot < 0.4] = -1
+    attr0[attr0_onehot < threshold] = -1
     attr1_onehot, attr1 = samples[:,  7:17].max(dim=1)
-    attr1[attr1_onehot < 0.4] = -1
+    attr1[attr1_onehot < threshold] = -1
     attr2_onehot, attr2 = samples[:, 17:27].max(dim=1)
-    attr2[attr2_onehot < 0.4] = -1
+    attr2[attr2_onehot < threshold] = -1
     attr_tsr = torch.stack((attr0, attr1, attr2), dim=1)
     return attr_tsr
