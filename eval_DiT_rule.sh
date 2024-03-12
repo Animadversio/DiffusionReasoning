@@ -77,13 +77,17 @@
 exproot="/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/DiT/results"
 
 # Assuming the experiment names follow the format "XXX-RAVEN10_abstract*"
-for expname in "${exproot}"/0{3,4}?-RAVEN10_abstract*; do
+for expname in "${exproot}"/04{5,6,7,8,9}-RAVEN10_abstract*; do
     encoding="--encoding digit"
     if [[ "$expname" == *"onehot"* ]]; then
         encoding="--encoding onehot"
     fi
+    
+    # python edm_rule_check_CLI.py --ep_step 1000 --ep_start 1000 --fmt %07d.pt \
+    #     --exproot "$exproot" \
+    #     --expname "$(basename "$expname")" $encoding --update
 
-    python edm_rule_check_CLI.py --ep_step 1000 --ep_start 1000 --fmt %07d.pt \
+    python edm_new_rule_check_CLI.py --ep_step 1000 --ep_start 1000 --fmt %07d.pt \
         --exproot "$exproot" \
         --expname "$(basename "$expname")" $encoding --update
 done
