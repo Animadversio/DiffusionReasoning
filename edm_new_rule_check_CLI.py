@@ -186,7 +186,7 @@ if __name__ == "__main__":
     parser.add_argument("--encoding", type=str, choices=["onehot", "digit"], default="digit", help="Encoding method for processing samples.")
     parser.add_argument("--device", type=str, choices=["cpu", "cuda"], default="cpu", help="Compute device to use.")
     parser.add_argument("--figname", type=str, default="", help="Name of the figure to save.")
-    parser.add_argument("--figdir", type=str, default="Figures", help="Directory to save the figure.")
+    parser.add_argument("--figdir", type=str, default="Figures_newrule", help="Directory to save the figure.")
     parser.add_argument("--title_str", type=str, default="", help="Title of the figure.")
     parser.add_argument("--fmt", type=str, default="tensor_%s.pt", help="Format of the sample files.")
     parser.add_argument("--update", action="store_true", help="Update the existing inferred rules.")
@@ -246,6 +246,7 @@ if __name__ == "__main__":
             rule_list_all = np.concatenate([rule_list_all_load, rule_list_all_rest], axis=0)
             consistency_all = np.concatenate([consistency_all_load, consistency_all_rest], axis=0)
             epoch_list = np.concatenate([epoch_list_load, epoch_rest], axis=0)
+            stats_df = pd.concat([stats_df_load, stats_df_rest], axis=0)
             print("Inferred rules updated.")
         print(rule_list_all.shape, consistency_all.shape, len(epoch_list), stats_df.shape)
     
