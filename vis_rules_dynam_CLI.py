@@ -37,7 +37,22 @@ for i in range(40):
         entry_table[i] = f"{row_table[i%10]}-{col_table[i//10+1]}"
 # print(entry_table)
 
-def visualize_indiv_rule_dynam(rule_mat, conv_wid=10, titlestr="Valid rule count separated by rule type", ylabel="Count", axs=None):
+heldout_id_dict = {
+    'train_inputs_new.pt'       : [1, 16, 20, 34, 37], 
+    'train_inputs_new_split0.pt': [1, 16, 20, 34, 37], 
+    'train_inputs_new_split1.pt': [8, 12, 24, 36, 39],
+    'train_inputs_new_split2.pt': [5, 17, 21, 33, 38],
+    'train_inputs_new_split3.pt': [3, 10, 29, 31, 37],
+    'train_inputs_new_split4.pt': [0, 14, 27, 35, 38],
+    'train_inputs_new_split5.pt': [4, 19, 26, 30, 39],
+    'train_inputs_new_split6.pt': [9, 13, 25, 32, 37],
+    'train_inputs_new_split7.pt': [2, 18, 23, 30, 38],
+    'train_inputs_new_split8.pt': [7, 15, 22, 34, 39],
+    'train_inputs_new_split9.pt': [6, 11, 28, 33, 37],
+}
+
+def visualize_indiv_rule_dynam(rule_mat, conv_wid=10, heldout_id=[1, 16, 20, 34, 37],
+                               titlestr="Valid rule count separated by rule type", ylabel="Count", axs=None):
     # remove top and right spines from plot with plt
     plt.rcParams.update({'font.size': 12})
     if axs is None:
@@ -52,7 +67,7 @@ def visualize_indiv_rule_dynam(rule_mat, conv_wid=10, titlestr="Valid rule count
         ax.plot(data['epoch_list'], smooth_rule_cnt, alpha=0.7, )
         ax.set_title(f"R{i}: {entry_table[i]}")
         # change the font color of title to red
-        if i in [1, 16, 20, 34, 37]:
+        if i in heldout_id:
             ax.title.set_color('red')
         if i >= 30:
             ax.set_xlabel("generation")
@@ -72,6 +87,15 @@ exproot = args.exproot
 expname = args.expname
 
 expdir = join(exproot, expname)
+if os.path.exists(join(expdir, "args.json")):
+    with open(join(expdir, "args.json"), 'r') as f:
+        args = edict(json.load(f))
+    train_data_fn = args['train_attr_fn']
+    heldout_id = heldout_id_dict[train_data_fn]
+    print(f"Found args.json file. Using heldout_id: {heldout_id} from {train_data_fn}.")
+else:
+    print("No args.json file found. Using default values.")
+    heldout_id = [1, 16, 20, 34, 37]
 # expdir = "/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/mini_edm/exps/BigBlnrX3_new_RAVEN10_abstract_20240315-1328"
 
 data = np.load(join(expdir, "samples_inferred_rule_consistency_new.npz"), allow_pickle=True)
@@ -110,13 +134,14 @@ for i in trange(len(data['epoch_list'])):
     cons2_rule_cnt_mat[i, rule_uniq] = counts
     
 figdir = "/n/home12/binxuwang/Github/DiffusionReasoning/Figures_newrule"
-figh, axs = visualize_indiv_rule_dynam(rule_cnt_mat, conv_wid=10, titlestr="Valid rule count separated by rule type")
+figh, axs = visualize_indiv_rule_dynam(rule_cnt_mat, conv_wid=10, heldout_id=heldout_id,
+                        titlestr=f"{expname}\nValid rule count separated by rule type")
 saveallforms(figdir, f"{expname}_indiv_rule_validity", figh)
 
 
-figh, axs = visualize_indiv_rule_dynam(cons3_rule_cnt_mat, conv_wid=10,
-                                       titlestr="Consistency 3 (blue) and 2 (orange) rule count", )
-figh, axs = visualize_indiv_rule_dynam(cons2_rule_cnt_mat, conv_wid=10,
-                                       titlestr="Consistency 3 (blue) and 2 (orange) rule count", axs=axs)
+figh, axs = visualize_indiv_rule_dynam(cons3_rule_cnt_mat, conv_wid=10, heldout_id=heldout_id,
+                                       titlestr=f"{expname}\nConsistency 3 (blue) and 2 (orange) rule count", )
+figh, axs = visualize_indiv_rule_dynam(cons2_rule_cnt_mat, conv_wid=10, heldout_id=heldout_id,
+                                       titlestr=f"{expname}\nConsistency 3 (blue) and 2 (orange) rule count", axs=axs)
 saveallforms(figdir, f"{expname}_indiv_rule_consistency", figh)
 
