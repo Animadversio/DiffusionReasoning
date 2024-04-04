@@ -1,4 +1,6 @@
 #%%
+import json
+from easydict import EasyDict as edict
 import torch
 import os
 import re
@@ -46,6 +48,7 @@ parser.add_argument("--figname", type=str, default="", help="Name of the figure 
 parser.add_argument("--figdir", type=str, default="Figures_newrule", help="Directory to save the figure.")
 parser.add_argument("--title_str", type=str, default="", help="Title of the figure.")
 parser.add_argument("--fmt", type=str, default='%07d.pt', help="Format of the sample files.")
+# parser.add_argument("--train_dataset", type=str, default="train_inputs_new.pt", help="Path to the training dataset.")
 # parser.add_argument("--update", action="store_true", help="Update the existing inferred rules.")
                     
 # Parse arguments
@@ -57,12 +60,12 @@ encoding = args.encoding
 figdir = args.figdir
 figname = expname if args.figname == "" else args.figname
 title_str = expname.replace("_"," ") if args.title_str == "" else args.title_str
+# train_dataset = args.train_dataset
 
 
 """Measure L1 distance to nearest neighbor in the training set"""
 DiTroot = r"/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/DiT/results"
 EDMroot = r"/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/mini_edm/exps"
-train_attrs = torch.load('/n/home12/binxuwang/Github/DiffusionReasoning/train_inputs_new.pt')
 # shape [35, 12000, 3, 9, 3]
 # figdir = "/n/home12/binxuwang/Github/DiffusionReasoning/Figures_newrule"
 # sample_dir = DiTroot + "/042-RAVEN10_abstract-uncond-DiT_B_1_20240309-1718/samples"
@@ -71,6 +74,17 @@ train_attrs = torch.load('/n/home12/binxuwang/Github/DiffusionReasoning/train_in
 visualize = False
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 expdir = join(exproot, expname)
+if os.path.exists(join(expdir, "args.json")):
+    with open(join(expdir, "args.json"), 'r') as f:
+        args = edict(json.load(f))
+    train_data_fn = args['train_attr_fn']
+    print(f"Found args.json file. Using  {train_data_fn}.")
+else:
+    print("No args.json file found. Using default values.")
+    train_data_fn = "train_inputs_new.pt"
+    
+train_attrs = torch.load(f'/n/home12/binxuwang/Github/DiffusionReasoning/{train_data_fn}')
+
 sample_dir = join(expdir, "samples")
 sample_all, epoch_list = batch_load_samples(sample_dir, epoch_list, encoding=args.encoding, fmt=args.fmt)
 train_attrs = train_attrs.to(device)
