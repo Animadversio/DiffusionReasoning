@@ -76,8 +76,8 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 expdir = join(exproot, expname)
 if os.path.exists(join(expdir, "args.json")):
     with open(join(expdir, "args.json"), 'r') as f:
-        args = edict(json.load(f))
-    train_data_fn = args['train_attr_fn']
+        train_args = edict(json.load(f))
+    train_data_fn = train_args['train_attr_fn']
     print(f"Found args.json file. Using  {train_data_fn}.")
 else:
     print("No args.json file found. Using default values.")
