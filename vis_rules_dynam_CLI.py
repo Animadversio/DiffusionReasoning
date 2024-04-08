@@ -89,8 +89,8 @@ expname = args.expname
 expdir = join(exproot, expname)
 if os.path.exists(join(expdir, "args.json")):
     with open(join(expdir, "args.json"), 'r') as f:
-        args = edict(json.load(f))
-    train_data_fn = args['train_attr_fn']
+        DiTargs = edict(json.load(f))
+    train_data_fn = DiTargs['train_attr_fn']
     heldout_id = heldout_id_dict[train_data_fn]
     print(f"Found args.json file. Using heldout_id: {heldout_id} from {train_data_fn}.")
 else:
