@@ -4,6 +4,7 @@ sys.path.append("/n/home12/binxuwang/Github/mini_edm")
 sys.path.append("/n/home12/binxuwang/Github/DiffusionReasoning")
 sys.path.append("/n/home12/binxuwang/Github/DiT")
 import os
+import json
 from os.path import join
 import pickle as pkl
 import torch
@@ -80,34 +81,6 @@ heldout_id_dict = {
     'train_inputs_new_split8.pt': [7, 15, 22, 34, 39],
     'train_inputs_new_split9.pt': [6, 11, 28, 33, 37],
 }
-heldout_rules = heldout_id_dict["train_inputs_new.pt"]
-
-# train_data_fn = "train_inputs_new.pt"
-# train_attrs = torch.load(f'/n/home12/binxuwang/Github/DiffusionReasoning/{train_data_fn}')
-# train_attrs = train_attrs.to(int)
-
-# prepare the dataset, training and testing
-train_attrs = np.load("/n/home12/binxuwang/Github/DiffusionReasoning/attr_all.npy")
-train_attrs = th.from_numpy(train_attrs).to(int)
-
-train_row_img = einops.rearrange(train_attrs, 'c s pnl (H W) att -> c s att H (pnl W)', H=3, W=3, att=3, pnl=3)
-train_sample_img = einops.rearrange(train_row_img, 'c (S R) att H W -> c S att (R H) W', R=3,att=3, H=3, W=9)
-labels_tsr = th.arange(len(train_sample_img)).to(int).view(-1,1).repeat(1, train_sample_img.shape[1])
-
-X_train = train_sample_img[:, :3000]
-y_train = labels_tsr[:, :3000]
-X_test = train_sample_img[:, 3000:]
-y_test = labels_tsr[:, 3000:]
-X_train = X_train.reshape(-1, 3, 9, 9)
-y_train = y_train.reshape(-1)
-X_test = X_test.reshape(-1, 3, 9, 9)
-y_test = y_test.reshape(-1)
-print(X_train.shape, y_train.shape)
-train_dataset = TensorDataset(X_train, y_train)
-test_dataset = TensorDataset(X_test, y_test)
-# abstract RAVEN dataset
-dataset_Xmean = th.tensor([1.5, 2.5, 2.5]).view(1, 3, 1, 1).to("cuda")
-dataset_Xstd = th.tensor([2.5, 3.5, 3.5]).view(1, 3, 1, 1).to("cuda")
 
 #%%
 import time
@@ -215,25 +188,93 @@ def fit_SGD_linear_classifier(train_X, train_y, test_X=None, test_y=None,
     results.pred_cls = pred_cls
     return model, results
 
+import argparse
+parser = argparse.ArgumentParser(description="Load and evaluate a DiT model.")
+parser.add_argument("--expname", type=str, default="045-RAVEN10_abstract-uncond-DiT_S_1_20240311-1256", 
+                    help="The name of the experiment.")
+parser.add_argument("--epoch", type=int, default=1000000, 
+                    help="The epoch of the model to load.")
+parser.add_argument("--use_ema", action="store_true", 
+                    help="Whether to use the EMA model.")
+parser.add_argument("--t_scalars", type=float, default=[0.1], 
+                    nargs="+", help="The time value to evaluate the score vectors.")
+parser.add_argument("--noPCA", action="store_true", 
+                    help="Whether to use PCA for the feature vectors.")
+parser.add_argument("--PC_dim", type=int, default=1024, 
+                    help="The dimension of the PCA projection.")
 
 # model_DiT
 exproot = r"/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/DiT/results"
-expname = r"045-RAVEN10_abstract-uncond-DiT_S_1_20240311-1256"
+# expname = r"045-RAVEN10_abstract-uncond-DiT_S_1_20240311-1256"
+# expname = r"062-RAVEN10_abstract-uncond-DiT_S_1_20240330-0111"
+args = parser.parse_args()
+expname = args.expname
+epoch = args.epoch
+use_ema = args.use_ema
+t_scalars = args.t_scalars
+noPCA = args.noPCA
+PC_dim = args.PC_dim
+
 expdir = join(exproot, expname)
 ckptdir = join(expdir, "checkpoints")
 repr_expdir = join(expdir, "repr_classifier")
 os.makedirs(repr_expdir, exist_ok=True)
+DiTargs = json.load(open(join(expdir, "args.json")))
 
-class_dropout_prob = 1.0
-num_classes = 0
-model_cfg = DiT_configs["DiT_S_1"]
+if DiTargs["cond"]:
+    num_classes = DiTargs.num_classes
+    class_dropout_prob = DiTargs["class_dropout_prob"]
+else:
+    num_classes = 0
+    class_dropout_prob = 1.0
+
+if DiTargs["dataset"] == "RAVEN10_abstract":
+    in_channels = 3
+    dataset_Xmean = th.tensor([1.5, 2.5, 2.5]).view(1, 3, 1, 1).to("cuda")
+    dataset_Xstd = th.tensor([2.5, 3.5, 3.5]).view(1, 3, 1, 1).to("cuda")
+elif DiTargs["dataset"] == "RAVEN10_abstract_onehot":
+    in_channels = 27
+    dataset_Xmean = th.tensor([0.5, ]).view(1, 1, 1, 1)
+    dataset_Xstd = th.tensor([0.5, ]).view(1, 1, 1, 1)
+    raise NotImplementedError("RAVEN10_abstract_onehot not implemented.")
+    
+model_cfg = DiT_configs[DiTargs["model"]]
 model_DiT = DiT(input_size=9,
-            in_channels=3, **model_cfg,
+            in_channels=in_channels, **model_cfg,
             mlp_ratio=4.0,
             class_dropout_prob=class_dropout_prob,
             num_classes=num_classes,
             learn_sigma=True,)
 
+heldout_rules = heldout_id_dict[DiTargs["train_data_fn"]]
+
+# train_data_fn = "train_inputs_new.pt"
+# train_attrs = torch.load(f'/n/home12/binxuwang/Github/DiffusionReasoning/{train_data_fn}')
+# train_attrs = train_attrs.to(int)
+# prepare the dataset, training and testing
+train_attrs = np.load("/n/home12/binxuwang/Github/DiffusionReasoning/attr_all.npy")
+train_attrs = th.from_numpy(train_attrs).to(int)
+
+if DiTargs["dataset"] == "RAVEN10_abstract":
+    train_row_img = einops.rearrange(train_attrs, 'c s pnl (H W) att -> c s att H (pnl W)', H=3, W=3, att=3, pnl=3)
+    train_sample_img = einops.rearrange(train_row_img, 'c (S R) att H W -> c S att (R H) W', R=3,att=3, H=3, W=9)
+elif DiTargs["dataset"] == "RAVEN10_abstract_onehot":
+    raise NotImplementedError("RAVEN10_abstract_onehot not implemented.")
+    # use the one-hot encoding
+labels_tsr = th.arange(len(train_sample_img)).to(int).view(-1,1).repeat(1, train_sample_img.shape[1])
+
+X_train = train_sample_img[:, :3000]
+y_train = labels_tsr[:, :3000]
+X_test = train_sample_img[:, 3000:]
+y_test = labels_tsr[:, 3000:]
+X_train = X_train.reshape(-1, 3, 9, 9)
+y_train = y_train.reshape(-1)
+X_test = X_test.reshape(-1, 3, 9, 9)
+y_test = y_test.reshape(-1)
+print(X_train.shape, y_train.shape)
+train_dataset = TensorDataset(X_train, y_train)
+test_dataset = TensorDataset(X_test, y_test)
+# abstract RAVEN dataset
 # ckpt_path = join(ckptdir, "1000000.pt")
 # ckpt_path = join(ckptdir, "0020000.pt")
 # ckpt_str = "ckpt0020000"
@@ -257,30 +298,38 @@ model_DiT = DiT(input_size=9,
 # ckpt_path = join(ckptdir, "0020000.pt")
 # state_dict = th.load(ckpt_path, )
 # model_DiT.load_state_dict(state_dict["model"])
-ckpt_str = "ckpt0100000"
-ckpt_path = join(ckptdir, "0100000.pt")
-state_dict = th.load(ckpt_path, )
-model_DiT.load_state_dict(state_dict["model"])
-# ckpt_str = "ckptRNDINIT"
+# PC_dim = 1024
+# # noPCA = False
+# noPCA = True
+if epoch == -1:
+    # use random initialization if epoch is -1
+    ckpt_str = "ckptRNDINIT"
+    print("Random initialization")
+else:
+    ckpt_path = join(ckptdir, f"{epoch:07d}.pt")
+    state_dict = th.load(ckpt_path, )
+    if use_ema:
+        model_DiT.load_state_dict(state_dict["ema"])
+    else:
+        model_DiT.load_state_dict(state_dict["model"])
+    ckpt_str = f"ckpt{epoch:07d}EMA" if use_ema else f"ckpt{epoch:07d}"
+    print(f"Loaded {ckpt_str}: from {ckpt_path}, use_ema: {use_ema}")
 
 model_DiT.to("cuda").eval();
 
-PC_dim = 1024
-# noPCA = False
-noPCA = True
-if noPCA: PC_dim = "FULL"
+if noPCA: 
+    PC_dim = "FULL"
+# if noPCA optimizing in the full space requires a smaller learning rate
 learning_rate = 0.0005 if noPCA else 0.005
 fetcher = featureFetcher_module()
 for i in [0, 2, 5, 8, 11]: 
     fetcher.record_module(model_DiT.blocks[i], target_name=f"blocks.{i}")
 
-# t_scalar = 0.1
-# t_str = str(t_scalar).replace('.', '_')
-for t_scalar in [0.1]: # 0.3, 0.5, 0.7, 0.9, 1.0, 0.05, 0.02, 0.1
+for t_scalar in args.t_scalars: # 0.3, 0.5, 0.7, 0.9, 1.0, 0.05, 0.02, 0.1
     t_str = str(t_scalar).replace('.', '_')
     t_beg = time.time()
-    train_loader = DataLoader(train_dataset, batch_size=1524, shuffle=False, drop_last=False)
-    test_loader = DataLoader(test_dataset, batch_size=1524, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=2048, shuffle=False, drop_last=False)
+    test_loader = DataLoader(test_dataset, batch_size=2048, shuffle=False)
     feature_col = defaultdict(list)
     for X_batch, y_batch in tqdm(train_loader):
         model_kwargs = dict(y=th.zeros(X_batch.shape[0], dtype=torch.int, device="cuda"))
@@ -371,7 +420,9 @@ for t_scalar in [0.1]: # 0.3, 0.5, 0.7, 0.9, 1.0, 0.05, 0.02, 0.1
     del feature_col
     del feature_col_test
     del PC_proj_col
-    del fetcher
+
+del fetcher
+
 
 
 
