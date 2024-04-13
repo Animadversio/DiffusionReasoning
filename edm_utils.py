@@ -8,13 +8,28 @@ sys.path.append("/n/home12/binxuwang/Github/mini_edm")
 def create_edm(path, config, device="cuda"):
     from train_edm import create_model, edm_sampler, EDM
     model = create_model(config)
-    model.load_state_dict(torch.load(path))
+    if path is not None:
+        model.load_state_dict(torch.load(path))
+    else:
+        print("No path provided, using random initialization")
     model = model.to(device)
     model.eval()
     model.requires_grad_(False);
     edm = EDM(model=model, cfg=config)
     return edm, model
 
+def create_edm_new(path, config, device="cuda"):
+    from train_abstr_edm_RAVEN import create_model_RAVEN, edm_sampler, EDM
+    model = create_model_RAVEN(config)
+    if path is not None:
+        model.load_state_dict(torch.load(path))
+    else:
+        print("No path provided, using random initialization")
+    model = model.to(device)
+    model.eval()
+    model.requires_grad_(False);
+    edm = EDM(model=model, cfg=config)
+    return edm, model
 
 def parse_train_logfile(logfile_path):
     # logfile = "/n/home12/binxuwang/Github/mini_edm/exps/base_mnist_20240129-1342/std.log"
