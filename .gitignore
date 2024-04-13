@@ -1,6 +1,7 @@
 Figures/*
 Figures_newrule/*
 Figures_CCN/*
+Figures_repr_classify/*
 *.pyc
 
 *.pt
