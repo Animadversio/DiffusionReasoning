@@ -184,6 +184,7 @@ def fit_SGD_linear_classifier(train_X, train_y, test_X=None, test_y=None,
     # Define the testing loop
     test_acc, pred_cls = test_model(model, test_feat_loader)
     results = edict()
+    results.feature_dim = input_size
     results.train_record = train_record
     results.test_record = test_record
     results.test_acc = test_acc
