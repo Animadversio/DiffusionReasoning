@@ -145,3 +145,13 @@ def infer_rule_from_sample_batch(sample_batch):
         panel=3, w=3, h=3, attr=3)
     r3_list, r2_list, rule_col = check_r3_r2_batch(sample_batch)
     return r3_list, r2_list, rule_col
+
+def infer_rule_statistics_from_sample_batch(sample_batch):
+    r3_list, r2_list, rule_col = infer_rule_from_sample_batch(sample_batch)
+    r3_count = sum([len(x) > 0 for x in r3_list])
+    r2_count = sum([len(x) > 0 for x in r2_list])
+    rule_flatten = np.array(rule_col, dtype=object).flatten() # [3 * 1024]
+    anyvalid_count = sum([len(x) > 0 for x in rule_flatten])
+    total = len(r3_list)
+    return r3_count, r2_count, anyvalid_count, total
+    
