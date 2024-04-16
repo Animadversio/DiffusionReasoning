@@ -133,3 +133,15 @@ def check_r3_r2_batch(attr_sample):
         rule_collector.append(rule_all)
         
     return r3_all, r2_all, rule_collector
+
+
+import einops
+def infer_rule_from_sample_batch(sample_batch):
+    # if not int convert to int
+    sample_batch = sample_batch.round().int()
+    sample_batch = sample_batch.view(-1, 3, 3, 3, 9) 
+    sample_batch = einops.rearrange(sample_batch, 
+        "B attr row h (panel w) -> B row panel (h w) attr", 
+        panel=3, w=3, h=3, attr=3)
+    r3_list, r2_list, rule_col = check_r3_r2_batch(sample_batch)
+    return r3_list, r2_list, rule_col
