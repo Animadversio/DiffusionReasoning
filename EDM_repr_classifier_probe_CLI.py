@@ -251,18 +251,33 @@ test_dataset = TensorDataset(X_test, y_test)
 # --layers_per_block 2 --model_channels 128 --channel_mult 1 2 4 --attn_resolutions 9 3 --train_batch_size 256 --spatial_matching bilinear
 
 # epoch = 700000
-expname = "WideBlnrX3_new_RAVEN10_abstract_20240315-1327"
+config_mapping = {
+    "WideBlnrX3_new_RAVEN10_abstract_20240315-1327": 
+        # --layers_per_block 2 --model_channels 128 --channel_mult 1 2 4 --attn_resolutions 9 3 --train_batch_size 256 --spatial_matching bilinear
+        dict(layers_per_block=2, model_channels=128, channel_mult=[1, 2, 4], attn_resolutions=[9, 3], spatial_matching="bilinear"),
+    "BigBlnrX3_new_RAVEN10_abstract_20240412-0143":
+        # --layers_per_block 3 --model_channels 192 --channel_mult 1 2 4 --attn_resolutions 9 3 --train_batch_size 256 --spatial_matching bilinear
+        dict(layers_per_block=3, model_channels=192, channel_mult=[1, 2, 4], attn_resolutions=[9, 3], spatial_matching="bilinear"),
+    "WideBlnrX3_new_noattn_RAVEN10_abstract_20240412-1254":
+        # --layers_per_block 2 --model_channels 128 --channel_mult 1 2 4 --attn_resolutions 0   --train_batch_size 256 --spatial_matching bilinear
+        dict(layers_per_block=2, model_channels=128, channel_mult=[1, 2, 4], attn_resolutions=[0], spatial_matching="bilinear"),
+    "BaseBlnrX3_new_RAVEN10_abstract_20240313-1736": 
+        # --layers_per_block 1 --model_channels 64  --channel_mult 1 2 4 --attn_resolutions 9 3 --train_batch_size 256 --spatial_matching bilinear
+        dict(layers_per_block=1, model_channels=64, channel_mult=[1, 2, 4], attn_resolutions=[9, 3], spatial_matching="bilinear"),
+}
+# expname = "WideBlnrX3_new_RAVEN10_abstract_20240315-1327"
 exproot = r"/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/mini_edm/exps"
 expdir = join(exproot, expname)
 ckptdir = join(expdir, "checkpoints")
 repr_expdir = join(expdir, "repr_classifier")
 os.makedirs(repr_expdir, exist_ok=True)
 device = "cuda"
-config_ft = get_default_config(DATASET, layers_per_block=2, 
-                               model_channels=128, 
-                               channel_mult=[1, 2, 4], 
-                               attn_resolutions=[9, 3], 
-                               spatial_matching="bilinear")
+# config_ft = get_default_config(DATASET, layers_per_block=2, 
+#                                model_channels=128, 
+#                                channel_mult=[1, 2, 4], 
+#                                attn_resolutions=[9, 3], 
+#                                spatial_matching="bilinear")
+config_ft = get_default_config(DATASET, **config_mapping[expname])
 # PC_dim = 1024
 # # noPCA = False
 # noPCA = True
@@ -285,10 +300,23 @@ if noPCA:
 # if noPCA optimizing in the full space requires a smaller learning rate
 learning_rate = 0.0005 if noPCA else 0.005
 fetcher = featureFetcher_module()
+record_module_list = ["input",
+               'enc.9x9_conv',
+                'enc.3x3_down',
+                'enc.1x1_down',
+                'dec.1x1_in0',
+                'dec.1x1_in1',
+                'dec.3x3_up',
+                'dec.9x9_up',
+                'dec.9x9_block2',
+                "dec.9x9_aux_norm",
+                "dec.9x9_aux_conv", ]
 for blockname in list(model_EDM.enc):
-    fetcher.record_module(model_EDM.enc[blockname], target_name=f"enc.{blockname}")
+    if f"enc.{blockname}" in record_module_list:
+        fetcher.record_module(model_EDM.enc[blockname], target_name=f"enc.{blockname}")
 for blockname in list(model_EDM.dec):
-    fetcher.record_module(model_EDM.dec[blockname], target_name=f"dec.{blockname}")
+    if f"dec.{blockname}" in record_module_list:
+        fetcher.record_module(model_EDM.dec[blockname], target_name=f"dec.{blockname}")
 
 for t_scalar in args.t_scalars: # 0.3, 0.5, 0.7, 0.9, 1.0, 0.05, 0.02, 0.1
     t_str = str(t_scalar).replace('.', '_')
@@ -329,17 +357,7 @@ for t_scalar in args.t_scalars: # 0.3, 0.5, 0.7, 0.9, 1.0, 0.05, 0.02, 0.1
     model_PCA_col = {}
     PC_proj_col = {}
     results_col = {}
-    for layerkey in ["input",
-                    'enc.9x9_conv',
-                    'enc.3x3_down',
-                    'enc.1x1_down',
-                    'dec.1x1_in0',
-                    'dec.1x1_in1',
-                    'dec.3x3_up',
-                    'dec.9x9_up',
-                    'dec.9x9_block2',
-                    "dec.9x9_aux_norm",
-                    "dec.9x9_aux_conv", ]: # 
+    for layerkey in record_module_list: # 
         t0 = time.time()
         featmat = feature_col[layerkey].reshape(len(train_dataset),-1)
         featmat_test = feature_col_test[layerkey].reshape(len(test_dataset),-1)
