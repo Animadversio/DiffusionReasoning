@@ -308,7 +308,7 @@ record_module_list = ["input",
                 'dec.1x1_in1',
                 'dec.3x3_up',
                 'dec.9x9_up',
-                'dec.9x9_block2',
+                # 'dec.9x9_block2',
                 "dec.9x9_aux_norm",
                 "dec.9x9_aux_conv", ]
 for blockname in list(model_EDM.enc):
