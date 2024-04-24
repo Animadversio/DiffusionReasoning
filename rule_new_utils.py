@@ -3,6 +3,31 @@ import numpy as np
 from collections import defaultdict
 rule_dir = '/n/home12/binxuwang/Github/DiffusionReasoning/rule_data/'
 
+def get_rule_annot():
+    relation_dict = {
+    0: "Constant",
+    1: "Progression neg 2",
+    2: "Progression neg 1",
+    3: "Progression pos 1",
+    4: "Progression pos 2",
+    5: "Arithmetic pos",
+    6: "Arithmetic neg",
+    7: "XOR",
+    8: "OR",
+    9: "AND"
+    }
+    attribute_dict =  {0: "Shape", 1: "Size", 2: "Color", 3: "Number", 4: "Position"}
+    rule_table = {}
+    for i in range(40):
+        if i < 37:
+            rule_table[i] = f"{relation_dict[i%10]}-{attribute_dict[i//10]}"
+        else:
+            rule_table[i] = f"{relation_dict[i%10]}-{attribute_dict[i//10+1]}"
+    return rule_table, relation_dict, attribute_dict
+
+rule_table, relation_dict, attribute_dict = get_rule_annot()
+
+
 with open(rule_dir+'r_dict_M7_withR.pkl', 'rb') as file:
     r_dict_M7_withR = pickle.load(file)
     
@@ -145,6 +170,16 @@ def infer_rule_from_sample_batch(sample_batch):
         panel=3, w=3, h=3, attr=3)
     r3_list, r2_list, rule_col = check_r3_r2_batch(sample_batch)
     return r3_list, r2_list, rule_col
+
+
+def compute_rule_statistics(r3_list, r2_list, rule_col):
+    r3_count = sum([len(x) > 0 for x in r3_list])
+    r2_count = sum([len(x) > 0 for x in r2_list])
+    rule_flatten = np.array(rule_col, dtype=object).flatten() # [3 * 1024]
+    anyvalid_count = sum([len(x) > 0 for x in rule_flatten])
+    total = len(r3_list)
+    return r3_count, r2_count, anyvalid_count, total
+
 
 def infer_rule_statistics_from_sample_batch(sample_batch):
     r3_list, r2_list, rule_col = infer_rule_from_sample_batch(sample_batch)
