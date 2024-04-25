@@ -49,12 +49,12 @@ class SepLMhead(nn.Module):
         
 
 class MultiIdxGPT2Model(nn.Module):
-    def __init__(self, attribute_dims=(7,10,10), vocab_size=0, max_length=128, n_embd=768, n_class=0):
+    def __init__(self, attribute_dims=(7,10,10), vocab_size=0, max_length=128, n_embd=768, n_class=0, **kwargs):
         super().__init__()
         self.sep_word_embed = SepWordEmbed(attribute_dims, embed_size=n_embd//3)
         # Combine embeddings
         combined_embedding_size = n_embd  # Adjust based on your combination strategy
-        config = GPT2Config(vocab_size=vocab_size, n_positions=max_length, n_embd=combined_embedding_size)
+        config = GPT2Config(vocab_size=vocab_size, n_positions=max_length, n_embd=combined_embedding_size, **kwargs)
         # config = GPT2Config(
         #     vocab_size=27,
         #     n_positions=128,
@@ -162,9 +162,19 @@ def compute_rule_statistics(r3_list, r2_list, rule_col):
     return r3_count, r2_count, anyvalid_count, total
 
 # %%
-def completion_eval(eval_samples, model, device='cuda', num_mask=9, strategy="greedy"):
+from tqdm import tqdm, trange
+@torch.no_grad()
+def completion_eval(eval_samples, model, device='cuda', num_mask=9, strategy="greedy", batch_size=512):
     eval_samples = eval_samples.to(device)
-    eval_complete = sample_next_token(model, eval_samples[:,:-num_mask,:], max_length=81, strategy=strategy, device=device).cpu()
+    eval_complete = []
+    for idx in trange(0, eval_samples.size(0), batch_size):
+        eval_batch = eval_samples[idx:idx+batch_size]
+        eval_complete_batch = sample_next_token(model, eval_batch[:,:-num_mask,:], 
+                                          max_length=81, strategy=strategy, device=device).cpu()
+        eval_complete.append(eval_complete_batch)
+    eval_complete = torch.cat(eval_complete, dim=0)
+    # eval_complete = sample_next_token(model, eval_samples[:,:-num_mask,:], 
+    #                                   max_length=81, strategy=strategy, device=device).cpu()
     # eval_complete_attr = seqtsr2attrtsr(eval_complete, h=3, w=3, p=3, R=3)
     eval_complete = eval_complete - 1
     eval_complete_img = seqtsr2imgtsr(eval_complete, h=3, w=3, p=3, R=3)
@@ -172,7 +182,7 @@ def completion_eval(eval_samples, model, device='cuda', num_mask=9, strategy="gr
     C3_count, C2_count, anyvalid_count, total = compute_rule_statistics(C3_list, C2_list, rule_col_list)
     # final_row = np.array(rule_col_list, dtype=object)[:,-1]
     # anyvalid_count = sum([len(x) > 0 for x in final_row])
-    print(f"Completion: C3: {C3_count}/{total},  valid: {anyvalid_count}/{total*3}")
+    print(f"Completion: C3: {C3_count / total:.3f} [{C3_count}/{total}],  valid: {anyvalid_count / total / 3:.3f} [{anyvalid_count}/{total*3}]")
     return eval_complete, C3_list, C2_list, rule_col_list
 
 
@@ -240,6 +250,56 @@ for epoch in range(50):
                f"eval_epoch{epoch}_fixed.pt")
     
 th.save(gpt2_raven.state_dict(), 'gpt2_raven_fixed.pth')
+#%%
+batch_size = 64
+gpt2_raven = MultiIdxGPT2Model(attribute_dims=(7,10,10), vocab_size=27, max_length=83, 
+                               n_embd=768, n_class=0, n_layer=24, n_head=12)
+# train loop
+optimizer = AdamW(gpt2_raven.parameters(), lr=1e-4)
+# scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=100, num_training_steps=1000)
+# dataset = torch.utils.data.TensorDataset(attr_seq_tsr_pps)
+data_loader = torch.utils.data.DataLoader(attr_seq_tsr_train, batch_size=batch_size, shuffle=True)
+val_loader = torch.utils.data.DataLoader(attr_seq_tsr_val, batch_size=256, shuffle=False, drop_last=False)
+gpt2_raven.train().to('cuda')
+for epoch in range(1,50):
+    gpt2_raven.train()
+    pbar = tqdm(data_loader)
+    for inputs in pbar:
+        inputs = inputs.cuda()
+        optimizer.zero_grad()
+        outputs, logits_attr1, logits_attr2, logits_attr3 = gpt2_raven(inputs, y=None)
+        # note the inputs were pre-pended in gpt2 to add context
+        loss = multi_attr_loss_vec([logits_attr1[:,:-1], logits_attr2[:,:-1], logits_attr3[:,:-1]], 
+                                   inputs)
+        # loss = next_token_loss((attr_seq_tsr_1, attr_seq_tsr_2, attr_seq_tsr_3), inputs)
+        loss.backward()
+        optimizer.step()
+        pbar.set_description(f'Loss: {loss.item()}')
+        # print(loss.item())
+    
+    gpt2_raven.eval()
+    
+    pbar = tqdm(val_loader)
+    val_loss_sum = []
+    for inputs in pbar:
+        inputs = inputs.cuda()
+        with torch.no_grad():
+            outputs, logits_attr1, logits_attr2, logits_attr3 = gpt2_raven(inputs)
+            loss = multi_attr_loss([logits_attr1[:,:-1], logits_attr2[:,:-1], logits_attr3[:,:-1]], inputs)
+        # loss = next_token_loss((attr_seq_tsr_1, attr_seq_tsr_2, attr_seq_tsr_3), inputs)
+        pbar.set_description(f'Loss: {loss.item()}')
+        # print(loss.item())
+        val_loss_sum.append(loss.item())
+    print("Validation Cross Entropy Loss ",np.mean(val_loss_sum))
+
+    rnd_idx = np.random.choice(len(attr_seq_tsr_val), 512)
+    eval_samples = attr_seq_tsr_val[rnd_idx,:,:]
+    eval_complete, C3_list, C2_list, rule_col_list = completion_eval(eval_samples, gpt2_raven, num_mask=9, 
+                                            device='cuda', strategy="greedy", batch_size=128)
+    torch.save({"eval_complete": eval_complete, "C3_list": C3_list, "C2_list": C2_list, "rule_col_list": rule_col_list}, 
+               f"eval_epoch{epoch}_fixed_gpt2_Big.pt")
+    
+th.save(gpt2_raven.state_dict(), 'gpt2_Big_raven_fixed.pth')
 
 # %%
 th.cuda.empty_cache()
