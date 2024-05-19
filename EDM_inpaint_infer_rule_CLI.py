@@ -85,7 +85,7 @@ def edm_sampler_inpaint(
 exproot = r"/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/mini_edm/exps"
 # expname = "WideBlnrX3_new_RAVEN10_abstract_20240315-1327"
 expname = "WideBlnrX3_new_RAVEN10_abstract_20240412-1347"
-epoch = 999999 #700000
+epoch = 100000 # 999999 #700000 # 100000
 
 DATASET = "RAVEN10_abstract"
 expdir = join(exproot, expname)
@@ -105,7 +105,8 @@ edm, model_EDM = create_edm_new(ckpt_path, config_ft, device)
 nreps = 50
 batch_size = 100
 total_steps = 18
-suffix = f"_Heun{total_steps}"
+# suffix = f"_Heun{total_steps}"
+suffix = f"_Heun{total_steps}_ep{epoch}"
 # model_kwargs = dict(y=th.zeros(batch_size, dtype=th.int, device="cuda"))
 # diffusion_eval = create_diffusion(timestep_respacing="ddim200")  # default: ddim100
 sample_col = []
