@@ -34,6 +34,15 @@ def shaded_error(ax, x, y, yerr_low, yerr_high, label=None, color=None, alpha=0.
     ax.fill_between(x, yerr_low, yerr_high, alpha=alpha, color=color)
 
 
+def add_rectangles(heldout_ids, fill=False, edgecolor='red', lw=2, col_num=10, ax=None, ):
+    from matplotlib.patches import Rectangle
+    if ax is None:
+        ax = plt.gca()
+    for rule_id in heldout_ids:
+        row = rule_id // col_num
+        col = rule_id % col_num
+        ax.add_patch(Rectangle((col, row), 1, 1, fill=fill, edgecolor=edgecolor, lw=lw))
+
 
 def visualize_consistency(epoch_list, consistent_mat, title_str="Wide Dep x3 Blnr", figname="RAVEN10_abstract_BigBlnr", figdir="../Figures", savefig=True,):
     sample_size = consistent_mat.shape[1]
