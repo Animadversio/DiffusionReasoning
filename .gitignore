@@ -6,3 +6,5 @@ Figures_repr_classify/*
 
 *.pt
 *.pth
+*.pkl
+*.npy
