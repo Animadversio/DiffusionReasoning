@@ -161,7 +161,7 @@ def compute_rule_statistics(r3_list, r2_list, rule_col):
 # %%
 @torch.no_grad()
 def completion_eval(eval_samples, model, device='cuda', num_mask=9, batch_size=512, 
-                    strategy="greedy", temperature=1.0):
+                    strategy="greedy", temperature=1.0, return_stats=False):
     eval_samples = eval_samples.to(device)
     if batch_size is None:
         batch_size = eval_samples.size(0)
@@ -183,7 +183,10 @@ def completion_eval(eval_samples, model, device='cuda', num_mask=9, batch_size=5
     # final_row = np.array(rule_col_list, dtype=object)[:,-1]
     # anyvalid_count = sum([len(x) > 0 for x in final_row])
     print(f"Completion: C3: {C3_count / total:.3f} [{C3_count}/{total}],  valid: {anyvalid_count / total / 3:.3f} [{anyvalid_count}/{total*3}]")
-    return eval_complete, C3_list, C2_list, rule_col_list
+    if return_stats:
+        return eval_complete, C3_list, C2_list, rule_col_list, {"C3": C3_count, "C2": C2_count, "anyvalid": anyvalid_count, "total": total}
+    else:
+        return eval_complete, C3_list, C2_list, rule_col_list
 
 
 def preprocess_ids(attr_seq_tsr, ):
