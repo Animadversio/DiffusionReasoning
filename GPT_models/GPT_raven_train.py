@@ -163,16 +163,16 @@ for epoch in range(epoch_total):
     th.save({"eval_complete": eval_complete, "C3_list": C3_list, "C2_list": C2_list, "rule_col_list": rule_col_list, "stats": stats,
              "eval_complete_abinit": eval_complete_abinit, "C3_list_abinit": C3_list_abinit, "C2_list_abinit": C2_list_abinit, "rule_col_list_abinit": rule_col_list_abinit, "stats_abinit": stats_abinit}, 
                join(sampledir, f"eval_epoch{epoch}.pt"))
-    writer.add_scalar('Val/C3', stats['C3_count'] / stats['total'], epoch)
-    writer.add_scalar('Val/C2', stats['C2_count'] / stats['total'], epoch)
-    writer.add_scalar('Val/AnyValid', stats['anyvalid_count'] / stats['total'] / 3, epoch)
-    writer.add_scalar('Val/C3_abinit', stats_abinit['C3_count'] / stats_abinit['total'], epoch)
-    writer.add_scalar('Val/C2_abinit', stats_abinit['C2_count'] / stats_abinit['total'], epoch)
-    writer.add_scalar('Val/AnyValid_abinit', stats_abinit['anyvalid_count'] / stats_abinit['total'] / 3, epoch)
-    
+    writer.add_scalar('Val/C3', stats['C3'] / stats['total'], epoch)
+    writer.add_scalar('Val/C2', stats['C2'] / stats['total'], epoch)
+    writer.add_scalar('Val/AnyValid', stats['anyvalid'] / stats['total'] / 3, epoch)
+    writer.add_scalar('Val/C3_abinit', stats_abinit['C3'] / stats_abinit['total'], epoch)
+    writer.add_scalar('Val/C2_abinit', stats_abinit['C2'] / stats_abinit['total'], epoch)
+    writer.add_scalar('Val/AnyValid_abinit', stats_abinit['anyvalid'] / stats_abinit['total'] / 3, epoch)
+
     if (epoch + 1) % save_ckpt_every == 0:
         th.save(gpt2_raven.state_dict(), join(ckptdir, f'gpt2_ep{epoch}.pth'))
-    
+
 th.save(gpt2_raven.state_dict(), join(ckptdir, 'gpt2_final.pth'))
 # Close the TensorBoard writer
 writer.close()
