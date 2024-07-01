@@ -46,10 +46,42 @@ class SepLMhead(nn.Module):
         attr_seq_tsr_2 = self.lmhead2(embed2)
         attr_seq_tsr_3 = self.lmhead3(embed3)
         return attr_seq_tsr_1, attr_seq_tsr_2, attr_seq_tsr_3
+
+
+class CmbWordEmbed(nn.Module):
+    def __init__(self, embed_dims=(7,10,10), embed_size=768):
+        super(CmbWordEmbed, self).__init__()
+        self.embedding1 = nn.Embedding(embed_dims[0]+1, embed_size)
+        self.embedding2 = nn.Embedding(embed_dims[1]+1, embed_size)
+        self.embedding3 = nn.Embedding(embed_dims[2]+1, embed_size)
+
+    def forward(self, attr_seq_tsr):
+        # split the attr_seq_tsr into three parts along the last dimension
+        # attr_seq_tsr_1, attr_seq_tsr_2, attr_seq_tsr_3 = torch.split(attr_seq_tsr, [1,1,1], dim=-1)
+        attr_seq_tsr_1, attr_seq_tsr_2, attr_seq_tsr_3 = attr_seq_tsr[...,0], attr_seq_tsr[...,1], attr_seq_tsr[...,2]
+        attr_seq_embed = self.embedding1(attr_seq_tsr_1)+\
+                         self.embedding2(attr_seq_tsr_2)+\
+                         self.embedding3(attr_seq_tsr_3)
+        return attr_seq_embed
+    
+class CmbLMhead(nn.Module):
+    def __init__(self, embed_dims=(7,10,10), embed_size=768):
+        super(CmbLMhead, self).__init__()
+        self.embed_size = embed_size
+        self.lmhead1 = nn.Linear(embed_size, embed_dims[0]+1)
+        self.lmhead2 = nn.Linear(embed_size, embed_dims[1]+1)
+        self.lmhead3 = nn.Linear(embed_size, embed_dims[2]+1)
         
+    def forward(self, attr_seq_embed):
+        # embed1, embed2, embed3 = torch.split(attr_seq_embed, [self.embed_size,self.embed_size,self.embed_size], dim=-1)
+        attr_seq_tsr_1 = self.lmhead1(attr_seq_embed)
+        attr_seq_tsr_2 = self.lmhead2(attr_seq_embed)
+        attr_seq_tsr_3 = self.lmhead3(attr_seq_embed)
+        return attr_seq_tsr_1, attr_seq_tsr_2, attr_seq_tsr_3
+    
 
 class MultiIdxGPT2Model(nn.Module):
-    def __init__(self, attribute_dims=(7,10,10), vocab_size=0, max_length=128, n_embd=768, n_class=0, **kwargs):
+    def __init__(self, attribute_dims=(7,10,10), vocab_size=0, max_length=128, n_embd=768, n_class=0, is_sep_embed=True, **kwargs):
         # config = GPT2Config(
         #     vocab_size=27,
         #     n_positions=128,
@@ -73,12 +105,16 @@ class MultiIdxGPT2Model(nn.Module):
         #     gradient_checkpointing=False,
         # )
         super().__init__()
-        self.sep_word_embed = SepWordEmbed(attribute_dims, embed_size=n_embd//3)
         # Combine embeddings
         combined_embedding_size = n_embd  # Adjust based on your combination strategy
+        if is_sep_embed:
+            self.sep_word_embed = SepWordEmbed(attribute_dims, embed_size=n_embd//3)
+            self.multi_lmhead = SepLMhead(attribute_dims, embed_size=n_embd//3)
+        else:
+            self.cmb_word_embed = CmbWordEmbed(attribute_dims, embed_size=n_embd)
+            self.multi_lmhead = CmbLMhead(attribute_dims, embed_size=n_embd)
         config = GPT2Config(vocab_size=vocab_size, n_positions=max_length, n_embd=combined_embedding_size, **kwargs)
         self.gpt2 = GPT2Model(config)
-        self.multi_lmhead = SepLMhead(attribute_dims, embed_size=n_embd//3)
         self.context_embed = nn.Embedding(1+n_class, n_embd)
 
     def forward(self, input_ids, y=None):
@@ -203,6 +239,7 @@ def get_train_val_seq_data():
     attr_all_rows = torch.tensor(attr_all)
     attr_img_tsr = einops.rearrange(attr_all_rows,  'class (B R) p (h w) attr -> class B attr (R h) (p w)', h=3,w=3,p=3,R=3)
     attr_img_tsr_train, attr_img_tsr_val = attr_img_tsr[:, :3950], attr_img_tsr[:, 3950:]
+    # Warning, add held out rules and decide if evaluation test on all held outs or just trained ones. 
     attr_seq_tsr_train = einops.rearrange(attr_img_tsr_train,  'class B attr (R h) (p w) -> (class B) (R p h w) attr', h=3,w=3,p=3,R=3)
     attr_seq_tsr_val = einops.rearrange(attr_img_tsr_val,  'class B attr (R h) (p w) -> (class B) (R p h w) attr', h=3,w=3,p=3,R=3)
     attr_seq_tsr_train = preprocess_ids(attr_seq_tsr_train)
