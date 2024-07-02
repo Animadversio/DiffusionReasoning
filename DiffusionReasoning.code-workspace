@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "../DiT"
+		},
+		{
+			"path": "."
+		},
+		{
+			"path": "../mini_edm"
+		}
+	],
+	"settings": {
+		"python.terminal.launchArgs": ["-s"],
+	}
+}
