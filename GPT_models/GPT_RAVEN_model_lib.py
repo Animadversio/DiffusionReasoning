@@ -111,7 +111,7 @@ class MultiIdxGPT2Model(nn.Module):
             self.sep_word_embed = SepWordEmbed(attribute_dims, embed_size=n_embd//3)
             self.multi_lmhead = SepLMhead(attribute_dims, embed_size=n_embd//3)
         else:
-            self.cmb_word_embed = CmbWordEmbed(attribute_dims, embed_size=n_embd)
+            self.sep_word_embed = CmbWordEmbed(attribute_dims, embed_size=n_embd)
             self.multi_lmhead = CmbLMhead(attribute_dims, embed_size=n_embd)
         config = GPT2Config(vocab_size=vocab_size, n_positions=max_length, n_embd=combined_embedding_size, **kwargs)
         self.gpt2 = GPT2Model(config)
