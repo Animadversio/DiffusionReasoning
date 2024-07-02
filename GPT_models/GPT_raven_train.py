@@ -126,7 +126,6 @@ for epoch in range(epoch_total):
         writer.add_scalar('Loss/train', loss.item(), global_step)
         writer.add_scalar('lr', scheduler.get_last_lr()[0], global_step)
         global_step += 1
-        # print(loss.item())
     
     train_loss_avg = np.mean(train_loss_sum)
     writer.add_scalar('Train/Avg_Loss', train_loss_avg, epoch)
@@ -141,7 +140,6 @@ for epoch in range(epoch_total):
                                        inputs)
         # loss = next_token_loss((attr_seq_tsr_1, attr_seq_tsr_2, attr_seq_tsr_3), inputs)
         pbar.set_description(f'Loss: {loss.item()}')
-        # print(loss.item())
         val_loss_sum.append(loss.item())
     print("Validation Cross Entropy Loss ",np.mean(val_loss_sum))
     writer.add_scalar('Val/Avg_Loss', np.mean(val_loss_sum), epoch)
