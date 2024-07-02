@@ -154,12 +154,12 @@ def next_token_loss(outputs, targets, loss_fn=F.cross_entropy):
 # %% [markdown]
 # ### Eval models
 @torch.no_grad()
-def sample_next_token(model, prefix_inputs, max_length=81, strategy="greedy", device="cuda", temperature=1.0):
+def sample_next_token(model, prefix_inputs, max_length=81, strategy="greedy", device="cuda", temperature=1.0, cond=None):
     prefix_inputs = prefix_inputs.to(device)
     model.eval().to(device)
     prefix_length = prefix_inputs.size(1)
     for i in range(max_length - prefix_length):
-        outputs, logits1, logits2, logits3 = model(prefix_inputs)
+        outputs, logits1, logits2, logits3 = model(prefix_inputs, y=cond)
         if strategy == "greedy":
             next_token1 = torch.argmax(logits1[:, -1, :], dim=-1, keepdim=True)
             next_token2 = torch.argmax(logits2[:, -1, :], dim=-1, keepdim=True)
@@ -196,7 +196,7 @@ def compute_rule_statistics(r3_list, r2_list, rule_col):
 
 # %%
 @torch.no_grad()
-def completion_eval(eval_samples, model, device='cuda', num_mask=9, batch_size=512, 
+def completion_eval(eval_samples, model, cond=None, device='cuda', num_mask=9, batch_size=512, 
                     strategy="greedy", temperature=1.0, return_stats=False):
     eval_samples = eval_samples.to(device)
     if batch_size is None:
@@ -204,8 +204,9 @@ def completion_eval(eval_samples, model, device='cuda', num_mask=9, batch_size=5
     eval_complete = []
     for idx in trange(0, eval_samples.size(0), batch_size):
         eval_batch = eval_samples[idx:idx+batch_size]
+        cond_batch = cond[idx:idx+batch_size] if cond is not None else None
         eval_complete_batch = sample_next_token(model, eval_batch[:,:-num_mask,:], temperature=temperature,
-                                          max_length=81, strategy=strategy, device=device).cpu()
+                                          max_length=81, strategy=strategy, device=device, cond=cond_batch).cpu()
         eval_complete.append(eval_complete_batch)
         
     eval_complete = torch.cat(eval_complete, dim=0)
@@ -247,58 +248,58 @@ def get_train_val_seq_data():
     return attr_seq_tsr_train, attr_seq_tsr_val
 
 
-import logging
-def train_gpt2_raven(attr_seq_tsr_train, attr_seq_tsr_val, batch_size=64, 
-                     learning_rate=1e-4, num_epochs=50, model_save_path='gpt2_raven_fixed.pth', 
-                     log_file='training.log', checkpoint_interval=10):
-    logging.basicConfig(filename=log_file, level=logging.INFO)
+# import logging
+# def train_gpt2_raven(attr_seq_tsr_train, attr_seq_tsr_val, batch_size=64, 
+#                      learning_rate=1e-4, num_epochs=50, model_save_path='gpt2_raven_fixed.pth', 
+#                      log_file='training.log', checkpoint_interval=10):
+#     logging.basicConfig(filename=log_file, level=logging.INFO)
     
-    gpt2_raven = MultiIdxGPT2Model(attribute_dims=(7,10,10), vocab_size=27, max_length=83, n_embd=768, n_class=0)
-    optimizer = AdamW(gpt2_raven.parameters(), lr=learning_rate)
-    data_loader = torch.utils.data.DataLoader(attr_seq_tsr_train, batch_size=batch_size, shuffle=True)
-    val_loader = torch.utils.data.DataLoader(attr_seq_tsr_val, batch_size=256, shuffle=False, drop_last=False)
-    gpt2_raven.train().to('cuda')
+#     gpt2_raven = MultiIdxGPT2Model(attribute_dims=(7,10,10), vocab_size=27, max_length=83, n_embd=768, n_class=0)
+#     optimizer = AdamW(gpt2_raven.parameters(), lr=learning_rate)
+#     data_loader = torch.utils.data.DataLoader(attr_seq_tsr_train, batch_size=batch_size, shuffle=True)
+#     val_loader = torch.utils.data.DataLoader(attr_seq_tsr_val, batch_size=256, shuffle=False, drop_last=False)
+#     gpt2_raven.train().to('cuda')
     
-    for epoch in range(num_epochs):
-        gpt2_raven.train()
-        pbar = tqdm(data_loader)
-        for inputs in pbar:
-            inputs = inputs.cuda()
-            optimizer.zero_grad()
-            outputs, logits_attr1, logits_attr2, logits_attr3 = gpt2_raven(inputs, y=None)
-            loss = multi_attr_loss_vec([logits_attr1[:,:-1], logits_attr2[:,:-1], logits_attr3[:,:-1]], inputs)
-            loss.backward()
-            optimizer.step()
-            pbar.set_description(f'Loss: {loss.item()}')
+#     for epoch in range(num_epochs):
+#         gpt2_raven.train()
+#         pbar = tqdm(data_loader)
+#         for inputs in pbar:
+#             inputs = inputs.cuda()
+#             optimizer.zero_grad()
+#             outputs, logits_attr1, logits_attr2, logits_attr3 = gpt2_raven(inputs, y=None)
+#             loss = multi_attr_loss_vec([logits_attr1[:,:-1], logits_attr2[:,:-1], logits_attr3[:,:-1]], inputs)
+#             loss.backward()
+#             optimizer.step()
+#             pbar.set_description(f'Loss: {loss.item()}')
         
-        gpt2_raven.eval()
-        pbar = tqdm(val_loader)
-        val_loss_sum = []
-        for inputs in pbar:
-            inputs = inputs.cuda()
-            with torch.no_grad():
-                outputs, logits_attr1, logits_attr2, logits_attr3 = gpt2_raven(inputs, y=None)
-                loss = multi_attr_loss([logits_attr1[:,:-1], logits_attr2[:,:-1], logits_attr3[:,:-1]], inputs)
-            pbar.set_description(f'Loss: {loss.item()}')
-            val_loss_sum.append(loss.item())
+#         gpt2_raven.eval()
+#         pbar = tqdm(val_loader)
+#         val_loss_sum = []
+#         for inputs in pbar:
+#             inputs = inputs.cuda()
+#             with torch.no_grad():
+#                 outputs, logits_attr1, logits_attr2, logits_attr3 = gpt2_raven(inputs, y=None)
+#                 loss = multi_attr_loss([logits_attr1[:,:-1], logits_attr2[:,:-1], logits_attr3[:,:-1]], inputs)
+#             pbar.set_description(f'Loss: {loss.item()}')
+#             val_loss_sum.append(loss.item())
         
-        val_loss_avg = np.mean(val_loss_sum)
-        logging.info(f'Epoch {epoch}, Validation Cross Entropy Loss: {val_loss_avg}')
-        print("Validation Cross Entropy Loss ", val_loss_avg)
+#         val_loss_avg = np.mean(val_loss_sum)
+#         logging.info(f'Epoch {epoch}, Validation Cross Entropy Loss: {val_loss_avg}')
+#         print("Validation Cross Entropy Loss ", val_loss_avg)
 
-        rnd_idx = np.random.choice(len(attr_seq_tsr_val), 512)
-        eval_samples = attr_seq_tsr_val[rnd_idx,:,:]
-        eval_complete, C3_list, C2_list, rule_col_list = completion_eval(eval_samples, gpt2_raven, num_mask=9, device='cuda', strategy="greedy")
-        torch.save({"eval_complete": eval_complete, 
-                    "C3_list": C3_list, "C2_list": C2_list, 
-                    "rule_col_list": rule_col_list}, 
-                   f"eval_epoch{epoch}_fixed.pt")
+#         rnd_idx = np.random.choice(len(attr_seq_tsr_val), 512)
+#         eval_samples = attr_seq_tsr_val[rnd_idx,:,:]
+#         eval_complete, C3_list, C2_list, rule_col_list = completion_eval(eval_samples, gpt2_raven, num_mask=9, device='cuda', strategy="greedy")
+#         torch.save({"eval_complete": eval_complete, 
+#                     "C3_list": C3_list, "C2_list": C2_list, 
+#                     "rule_col_list": rule_col_list}, 
+#                    f"eval_epoch{epoch}_fixed.pt")
         
-        if epoch % checkpoint_interval == 0:
-            torch.save(gpt2_raven.state_dict(), f'{model_save_path}_epoch{epoch}.pth')
+#         if epoch % checkpoint_interval == 0:
+#             torch.save(gpt2_raven.state_dict(), f'{model_save_path}_epoch{epoch}.pth')
     
-    torch.save(gpt2_raven.state_dict(), model_save_path)
-    return gpt2_raven
+#     torch.save(gpt2_raven.state_dict(), model_save_path)
+#     return gpt2_raven
 
 # %%
 # attr_seq_tsr_train, attr_seq_tsr_val = get_train_val_seq_data()

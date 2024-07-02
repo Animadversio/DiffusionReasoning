@@ -25,6 +25,7 @@ from GPT_models.GPT_RAVEN_model_lib import completion_eval, sample_next_token, \
     multi_attr_loss_vec, MultiIdxGPT2Model
 from GPT_models.GPT_RAVEN_model_lib import seqtsr2imgtsr, seqtsr2attrtsr, compute_rule_statistics
 from rule_new_utils import check_r3_r2_batch, infer_rule_from_sample_batch
+from torch.utils.data import TensorDataset, DataLoader
 
 # %%
 # Initialize the GPT-2 model and tokenizer
@@ -48,31 +49,41 @@ attr_seq_tsr_val = einops.rearrange(attr_img_tsr_val,  'class B attr (R h) (p w)
 attr_seq_tsr_train = preprocess_ids(attr_seq_tsr_train)
 attr_seq_tsr_val = preprocess_ids(attr_seq_tsr_val)
 print(attr_seq_tsr_train.shape, attr_seq_tsr_val.shape)
+# Set the y of the dataset, which is the class index; split the y into training and validation
+y_rule = th.arange(attr_img_tsr.shape[0], dtype=th.long).unsqueeze(1)
+y_rule = y_rule.repeat(1, attr_img_tsr.shape[1])
+y_rule_train, y_rule_val = y_rule[train_mask, :3950], y_rule[:, 3950:]
+y_rule_train = einops.rearrange(y_rule_train, 'class B -> (class B)', )
+y_rule_val = einops.rearrange(y_rule_val, 'class B -> (class B)', )
 #%%
 saveroot = "/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/GPT2_raven"
 
 batch_size = 64
 epoch_total = 100
 save_ckpt_every = 5
-# explabel = "GPT2_base_RAVEN_uncond_heldout0"
-# n_embd = 768
-# n_layer = 12
-# n_head = 12
-# is_sep_embed = True
-# explabel = "GPT2_medium_RAVEN_uncond_heldout0"
+explabel = "GPT2_base_RAVEN_cond_heldout0"
+n_embd = 768
+n_layer = 12
+n_head = 12
+is_sep_embed = True
+# explabel = "GPT2_medium_RAVEN_cond_heldout0"
 # n_embd = 768
 # n_layer = 24
 # n_head = 12
 # is_sep_embed = True
-explabel = "GPT2CmbEmb_base_RAVEN_uncond_heldout0"
-n_embd = 768
-n_layer = 12
-n_head = 12
-is_sep_embed = False
-n_class = 0
+# explabel = "GPT2CmbEmb_base_RAVEN_cond_heldout0"
+# n_embd = 768
+# n_layer = 12
+# n_head = 12
+# is_sep_embed = False
+n_class = 40
 lr = 1e-4
 num_warmup_steps = 100
 eval_temperature = 1.0
+
+if n_class > 0:
+    assert n_class == len(attr_all)
+is_class_cond = n_class > 0
 
 expdir = join(saveroot, f"{explabel}-{time.strftime('%Y%m%d-%H%M%S')}")
 ckptdir = join(expdir, "ckpt")
@@ -89,16 +100,20 @@ config = {"batch_size": batch_size, "epoch_total": epoch_total, "save_ckpt_every
            "heldout_id": heldout_id, 
            "train_sample_num": len(attr_seq_tsr_train), 
            "val_sample_num": len(attr_seq_tsr_val),
-           "eval_temperature": eval_temperature}
+           "eval_temperature": eval_temperature,
+           "is_class_cond": is_class_cond, }
 json.dump(config, open(join(expdir, "config.json"), 'w'))
+
 #%%
 # bug fix @2024-06-28, before which, the "n_embd": n_embd, "n_class": n_class, "n_layer": n_layer, "n_head": n_head, are no effect
 gpt2_raven = MultiIdxGPT2Model(attribute_dims=(7,10,10), vocab_size=27, max_length=83, 
                                n_class=n_class, n_embd=n_embd, n_layer=n_layer, n_head=n_head, is_sep_embed=is_sep_embed)
 # train loop
 # dataset = torch.utils.data.TensorDataset(attr_seq_tsr_pps)
-data_loader = torch.utils.data.DataLoader(attr_seq_tsr_train, batch_size=batch_size, shuffle=True)
-val_loader = torch.utils.data.DataLoader(attr_seq_tsr_val, batch_size=256, shuffle=False, drop_last=False)
+train_dataset = TensorDataset(attr_seq_tsr_train, y_rule_train)
+val_dataset = TensorDataset(attr_seq_tsr_val, y_rule_val)
+data_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=256, shuffle=False, drop_last=False)
 
 num_training_steps = len(data_loader) * epoch_total
 optimizer = AdamW(gpt2_raven.parameters(), lr=lr)
@@ -110,13 +125,16 @@ for epoch in range(epoch_total):
     gpt2_raven.train()
     pbar = tqdm(data_loader)
     train_loss_sum = []
-    for step, inputs in enumerate(pbar):
+    for step, (inputs, ys) in enumerate(pbar):
         inputs = inputs.cuda()
+        ys = ys.cuda()
         optimizer.zero_grad()
-        outputs, logits_attr1, logits_attr2, logits_attr3 = gpt2_raven(inputs, y=None)
+        if is_class_cond:
+            outputs, logits_attr1, logits_attr2, logits_attr3 = gpt2_raven(inputs, y=ys)
+        else:
+            outputs, logits_attr1, logits_attr2, logits_attr3 = gpt2_raven(inputs, y=None)
         # note the inputs were pre-pended in gpt2 to add context
-        loss = multi_attr_loss_vec([logits_attr1[:,:-1], logits_attr2[:,:-1], logits_attr3[:,:-1]], 
-                                   inputs)
+        loss = multi_attr_loss_vec([logits_attr1[:,:-1], logits_attr2[:,:-1], logits_attr3[:,:-1]], inputs)
         # loss = next_token_loss((attr_seq_tsr_1, attr_seq_tsr_2, attr_seq_tsr_3), inputs)
         loss.backward()
         optimizer.step()
@@ -132,12 +150,15 @@ for epoch in range(epoch_total):
     gpt2_raven.eval()
     pbar = tqdm(val_loader)
     val_loss_sum = []
-    for inputs in pbar:
+    for (inputs, ys) in pbar:
         inputs = inputs.cuda()
+        ys = ys.cuda()
         with torch.no_grad():
-            outputs, logits_attr1, logits_attr2, logits_attr3 = gpt2_raven(inputs)
-            loss = multi_attr_loss_vec([logits_attr1[:,:-1], logits_attr2[:,:-1], logits_attr3[:,:-1]], 
-                                       inputs)
+            if is_class_cond:
+                outputs, logits_attr1, logits_attr2, logits_attr3 = gpt2_raven(inputs, y=ys)
+            else:
+                outputs, logits_attr1, logits_attr2, logits_attr3 = gpt2_raven(inputs, y=None)
+            loss = multi_attr_loss_vec([logits_attr1[:,:-1], logits_attr2[:,:-1], logits_attr3[:,:-1]], inputs)
         # loss = next_token_loss((attr_seq_tsr_1, attr_seq_tsr_2, attr_seq_tsr_3), inputs)
         pbar.set_description(f'Loss: {loss.item()}')
         val_loss_sum.append(loss.item())
@@ -147,14 +168,17 @@ for epoch in range(epoch_total):
     # rnd_idx = np.random.choice(len(attr_seq_tsr_val), 512)
     eval_samples = attr_seq_tsr_val[:,:,:]
     eval_complete, C3_list, C2_list, rule_col_list, stats = completion_eval(eval_samples, gpt2_raven, num_mask=9, batch_size=256, 
-                                                                     device='cuda', strategy="greedy", return_stats=True)
+                                                                        device='cuda', strategy="greedy", return_stats=True,
+                                                                        cond=y_rule_val.cuda() if is_class_cond else None)
     # evaluation by ab initio generation of samples
-    eval_samples_empty = th.zeros(2048, 81, 3, dtype=th.long).to('cuda')
+    y_rule_abinit = th.arange(40).repeat_interleave(50)
+    eval_samples_empty = th.zeros(len(y_rule_abinit), 81, 3, dtype=th.long).to('cuda')
     eval_complete_abinit, C3_list_abinit, C2_list_abinit, rule_col_list_abinit, stats_abinit = completion_eval(eval_samples_empty, gpt2_raven, num_mask=81, batch_size=256, 
-                                                device='cuda', strategy="sample", temperature=eval_temperature, return_stats=True)
+                                                device='cuda', strategy="sample", temperature=eval_temperature, return_stats=True,
+                                                cond=y_rule_abinit.cuda() if is_class_cond else None)
     th.save({"eval_complete": eval_complete, "C3_list": C3_list, "C2_list": C2_list, "rule_col_list": rule_col_list, "stats": stats,
-             "eval_complete_abinit": eval_complete_abinit, "C3_list_abinit": C3_list_abinit, "C2_list_abinit": C2_list_abinit, "rule_col_list_abinit": rule_col_list_abinit, "stats_abinit": stats_abinit}, 
-               join(sampledir, f"eval_epoch{epoch}.pt"))
+                "eval_complete_abinit": eval_complete_abinit, "C3_list_abinit": C3_list_abinit, "C2_list_abinit": C2_list_abinit, "rule_col_list_abinit": rule_col_list_abinit, "stats_abinit": stats_abinit}, 
+                join(sampledir, f"eval_epoch{epoch}.pt"))
     writer.add_scalar('Val/C3', stats['C3'] / stats['total'], epoch)
     writer.add_scalar('Val/C2', stats['C2'] / stats['total'], epoch)
     writer.add_scalar('Val/AnyValid', stats['anyvalid'] / stats['total'] / 3, epoch)
@@ -168,3 +192,5 @@ for epoch in range(epoch_total):
 th.save(gpt2_raven.state_dict(), join(ckptdir, 'gpt2_final.pth'))
 # Close the TensorBoard writer
 writer.close()
+
+
