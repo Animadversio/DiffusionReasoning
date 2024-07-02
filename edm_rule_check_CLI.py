@@ -162,7 +162,9 @@ if __name__ == "__main__":
         df.plot(x="step", y=["average_loss","batch_loss"], alpha=0.75)
         plt.savefig(join(expdir, "loss_curve.png"))
     
+    # logic to partial update the saved inferred rules
     if os.path.exists(join(expdir, "samples_inferred_rule_consistency.npz")) and args.update:
+        # if update flag is on, load the existing inferred rules and update
         print("Inferred rules already exist. Loading from file.")
         npzfile = np.load(join(expdir, "samples_inferred_rule_consistency.npz"))
         rules_all_load = npzfile["rules_all"]
@@ -182,6 +184,7 @@ if __name__ == "__main__":
             print("Inferred rules updated.")
         print(rules_all_wide.shape, consistent_mat_wide.shape, len(epoch_list))
     else:
+        # infer rules from samples from scratch
         rules_all_wide, consistent_mat_wide, epoch_list = batch_load_samples_infer_rules(
             join(expdir, "samples"), epoch_list, encoding=encoding, fmt=args.fmt)
     
