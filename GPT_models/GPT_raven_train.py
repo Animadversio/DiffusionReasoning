@@ -33,6 +33,7 @@ def preprocess_ids(attr_seq_tsr, ):
     return attr_seq_tsr_pps
 
 heldout_id = [1, 16, 20, 34, 37]
+heldout_id = []
 # Create a mask with all True values
 # Set the specified rows to False
 train_mask = torch.ones(40, dtype=torch.bool)
@@ -60,15 +61,16 @@ save_ckpt_every = 5
 # n_head = 12
 # is_sep_embed = True
 # explabel = "GPT2_medium_RAVEN_uncond_heldout0"
-# n_embd = 768
-# n_layer = 24
-# n_head = 12
-# is_sep_embed = True
-explabel = "GPT2CmbEmb_base_RAVEN_uncond_heldout0"
+explabel = "GPT2_medium_RAVEN_uncond_all"
 n_embd = 768
-n_layer = 12
+n_layer = 24
 n_head = 12
-is_sep_embed = False
+is_sep_embed = True
+# explabel = "GPT2CmbEmb_base_RAVEN_uncond_heldout0"
+# n_embd = 768
+# n_layer = 12
+# n_head = 12
+# is_sep_embed = False
 n_class = 0
 lr = 1e-4
 num_warmup_steps = 100
