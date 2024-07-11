@@ -189,4 +189,83 @@ def infer_rule_statistics_from_sample_batch(sample_batch):
     anyvalid_count = sum([len(x) > 0 for x in rule_flatten])
     total = len(r3_list)
     return r3_count, r2_count, anyvalid_count, total
+
+
+def pool_rules(r3_list, r2_list, rule_col):
+    # r3_list = np.array(r3_list, dtype=object)
+    # r2_list = np.array(r2_list, dtype=object)
+    r3_rule_pool = sum(r3_list, [])
+    r2_rule_pool = sum(r2_list, [])
+    rule_col = np.array(rule_col, dtype=object)
+    # rule_pool = sum(list(rule_col[:].flatten()), [])
+    try:
+        rule_pool = np.concatenate(list(rule_col[:].flatten())).astype(int)
+    except ValueError:
+        rule_pool = np.array([]).astype(int)
+    # rule_pool = np.array(rule_pool).astype(int)
+    r3_rule_pool = np.array(r3_rule_pool).astype(int)
+    r2_rule_pool = np.array(r2_rule_pool).astype(int)
+    return r3_rule_pool, r2_rule_pool, rule_pool
+
+
+from tqdm import tqdm
+import os
+from os.path import join
+import torch
+import pandas as pd
+from dataset_utils import onehot2attr_tsr
+def format_samples(samples, encoding="digit"):
+    if encoding == "onehot":
+        sample_fmt = onehot2attr_tsr(samples, threshold=0.5)
+    elif encoding == "digit":
+        sample_fmt = torch.round(samples).int() # (batch, 3, 9, 9)
+    else:
+        raise ValueError("encoding should be onehot or digit")
+    return sample_fmt
     
+
+
+def batch_load_samples(samples_dir, epoch_list, encoding="onehot", fmt="tensor%s.pt"):
+    sample_all = []
+    for epoch in tqdm(epoch_list): 
+        if not os.path.exists(join(samples_dir, fmt % epoch)):
+            print(epoch, "not exist")
+            break
+        samples = torch.load(join(samples_dir, fmt % epoch)) # (batch, 27, 9, 9)
+        if encoding == "onehot":
+            attr_tsr_list = onehot2attr_tsr(samples, threshold=0.5)
+        elif encoding == "digit":
+            attr_tsr_list = torch.round(samples).int() # (batch, 3, 9, 9)
+        else:
+            raise ValueError("encoding should be onehot or digit")
+        sample_all.append(attr_tsr_list)
+    epoch_list = epoch_list[:len(sample_all)]
+    return sample_all, epoch_list
+
+
+def samples_infer_rule_consistency(sample_all, epoch_list, ):
+    stats_col = []
+    rule_list_all = []
+    consistency_all = []
+    pbar = tqdm(enumerate(epoch_list))
+    for i, epoch in pbar: 
+        # print(i, epoch)
+        batchsize = sample_all[i].shape[0]
+        sample_batch = sample_all[i] # [1024, 3, 9, 9]
+        sample_batch = sample_batch.view(-1, 3, 3, 3, 9) 
+        sample_batch = einops.rearrange(sample_batch, 
+                "B attr row h (panel w) -> B row panel (h w) attr", 
+                                    panel=3, w=3, h=3, attr=3)
+        r3_list, r2_list, rule_col = check_r3_r2_batch(sample_batch)
+        r3_count = sum([len(x) > 0 for x in r3_list])
+        r2_count = sum([len(x) > 0 for x in r2_list])
+        rule_flatten = np.array(rule_col, dtype=object).flatten() # [3 * 1024]
+        anyvalid_count = sum([len(x) > 0 for x in rule_flatten])
+        stats_col.append({"epoch": epoch, "r3_count": r3_count, "r2_count": r2_count, 
+                        "valid_count": anyvalid_count, "sample_count": batchsize})
+        rule_list_all.append((rule_col))
+        consistency_all.append((r3_list, r2_list))
+        pbar.set_postfix({"epoch": epoch, "r3_count": r3_count, "r2_count": r2_count})
+
+    stats_df = pd.DataFrame(stats_col)
+    return stats_df, rule_list_all, consistency_all
