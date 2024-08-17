@@ -34,7 +34,7 @@ def preprocess_ids(attr_seq_tsr, ):
     return attr_seq_tsr_pps
 
 heldout_id = [1, 16, 20, 34, 37]
-heldout_id = []
+# heldout_id = []
 # Create a mask with all True values
 # Set the specified rows to False
 train_mask = torch.ones(40, dtype=torch.bool)
@@ -100,12 +100,18 @@ total_steps = 250000
 # n_head = 12
 # is_sep_embed = True
 # n_class = 0
-explabel = "GPT2_medium_RAVEN_cond_all_stream16M"
+# explabel = "GPT2_medium_RAVEN_cond_all_stream16M"
+# n_embd = 768
+# n_layer = 24
+# n_head = 12
+# is_sep_embed = True
+# n_class = 40
+explabel = "GPT2_medium_RAVEN_uncond_heldout0_stream16M"
 n_embd = 768
 n_layer = 24
 n_head = 12
 is_sep_embed = True
-n_class = 40
+n_class = 0
 # explabel = "GPT2CmbEmb_base_RAVEN_cond_heldout0"
 # n_embd = 768
 # n_layer = 12
@@ -185,6 +191,7 @@ for step in pbar:
     scheduler.step()
     train_loss_sum.append(loss.item())
     pbar.set_description(f'Loss: {loss.item()} lr: {scheduler.get_last_lr()[0]}')
+    pbar.update()
     writer.add_scalar('Loss/train', loss.item(), global_step)
     writer.add_scalar('lr', scheduler.get_last_lr()[0], global_step)
     
