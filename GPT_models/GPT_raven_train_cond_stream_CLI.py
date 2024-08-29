@@ -175,7 +175,9 @@ def main(args):
         writer.add_scalar('Loss/train', loss.item(), global_step)
         writer.add_scalar('lr', scheduler.get_last_lr()[0], global_step)
         
-        if (global_step + 1) % eval_model_every_step == 0:
+        if (global_step + 1) % eval_model_every_step == 0 or \
+           (global_step == 0) or \
+           (global_step + 1 == total_steps):
             gpt2_raven.eval()
             pbar = tqdm(val_loader)
             val_loss_sum = []
