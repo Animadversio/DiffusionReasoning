@@ -8,3 +8,5 @@ Figures_repr_classify/*
 *.pth
 *.pkl
 *.npy
+*.out
+*.err
