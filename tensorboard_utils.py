@@ -24,10 +24,11 @@ def extract_tensorboard_data_from_run(logdir):
 
     return pd.DataFrame(data)
 
+
 def extract_all_runs(root_logdir):
     run_dataframes = {}
     for root, dirs, files in os.walk(root_logdir):
-        for subdir in dirs:
+        for subdir in sorted(dirs):
             run_path = os.path.join(root, subdir)
             if os.path.isdir(run_path):
                 df = extract_tensorboard_data_from_run(run_path)
@@ -37,26 +38,6 @@ def extract_all_runs(root_logdir):
                     print(f"Extracted data from {relative_path}")
     return run_dataframes
 
-
-def extract_last_step_summary(tb_data_col, simplify_runname=None):
-    # Create an empty dataframe
-    result_df = []
-    # Iterate over the runs in tb_data_col
-    for run_name, run_data in tb_data_col.items():
-        # Get the last step for each tag
-        last_step_data = run_data.groupby('tag')['step'].max().reset_index()
-        # Extract the value at the last step for each tag
-        last_step_values = run_data.merge(last_step_data, on=['tag', 'step'], how='inner')
-        if simplify_runname is not None:
-            last_step_values["run_name"] = simplify_runname(run_name) 
-        else:
-            last_step_values["run_name"] = run_name
-        # Transposing the data, using the tags as columns
-        last_step_values = last_step_values.pivot(index='run_name', columns='tag', values='value')
-        # Append the extracted values to the result dataframe
-        result_df.append(last_step_values)
-    result_df = pd.concat(result_df)
-    return result_df
 
 
 def extract_last_step_summary(tb_data_col, simplify_runname=None, exclude_runs=()):
