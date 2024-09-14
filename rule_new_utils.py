@@ -27,6 +27,11 @@ def get_rule_annot():
 
 rule_table, relation_dict, attribute_dict = get_rule_annot()
 
+rule_table_brief = {k: v.replace("Constant","Const").\
+    replace("Progression","Prog").\
+    replace("Arithmetic","Arith") for k,v in rule_table.items()}
+    # replace("neg", "-").\
+    # replace("pos", "+") 
 
 with open(rule_dir+'r_dict_M7_withR.pkl', 'rb') as file:
     r_dict_M7_withR = pickle.load(file)
