@@ -180,7 +180,7 @@ def infer_rule_from_sample_batch(sample_batch):
 def compute_rule_statistics(r3_list, r2_list, rule_col, verbose=True):
     C3_count = sum([len(x) > 0 for x in r3_list])
     C2_count = sum([len(x) > 0 for x in r2_list])
-    rule_flatten = np.array(rule_col, dtype=object).flatten() # [3 * 1024]
+    rule_flatten = sum(rule_col, []) #np.array(rule_col, dtype=object).flatten() # [3 * 1024]
     anyvalid_count = sum([len(x) > 0 for x in rule_flatten])
     total = len(r3_list)
     if verbose:
