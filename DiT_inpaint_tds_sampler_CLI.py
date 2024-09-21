@@ -1,6 +1,7 @@
 import os
 from os.path import join
 import argparse
+import json
 import random
 import time
 import sys
@@ -33,17 +34,12 @@ from image_diffusion.script_util import create_gaussian_diffusion
 from diffusion import create_diffusion
 from models import DiT
 # Diffusion Reasoning library
-from rule_new_utils import (
-    check_r3_r2_batch,
-    infer_rule_from_sample_batch,
-    compute_rule_statistics,
-)
-from stats_plot_utils import add_rectangles, saveallforms
+from rule_new_utils import infer_rule_from_sample_batch, compute_rule_statistics
 from rule_new_utils import rule_table, relation_dict, attribute_dict, rule_table_brief
+from stats_plot_utils import add_rectangles, saveallforms
 
-def load_DiT_model(model_cfg, ckpt_path, device='cuda'):
-    class_dropout_prob = 1.0
-    num_classes = 0
+def load_DiT_model(model_cfg, ckpt_path, device='cuda', 
+                   class_dropout_prob=1.0, num_classes=0):
     model_DiT = DiT(input_size=9, in_channels=3, 
                 **model_cfg,
                 mlp_ratio=4.0,
@@ -102,7 +98,7 @@ heldout_id_dict = {
     'train_inputs_new_split8.pt': [7, 15, 22, 34, 39],
     'train_inputs_new_split9.pt': [6, 11, 28, 33, 37],
 }
-heldout_rules = heldout_id_dict["train_inputs_new.pt"]
+# heldout_rules = heldout_id_dict["train_inputs_new.pt"]
 # %%
 
 def create_arg_parser():
@@ -122,14 +118,12 @@ def create_arg_parser():
         help='Offset for sample IDs (default: 50)'
     )
     parser.add_argument(
-        '--expname', type=str,
-        default="090-RAVEN10_abstract-uncond-DiT_S_1-stream0_16M_heldout0_20240711-0204",
+        '--expname', type=str, default="090-RAVEN10_abstract-uncond-DiT_S_1-stream0_16M_heldout0_20240711-0204",
         help='Name of the experiment (default: "090-RAVEN10_abstract-uncond-DiT_S_1-stream0_16M_heldout0_20240711-0204")'
     )
     parser.add_argument(
-        '--ckpt', type=str,
-        default="1000000.pt",
-        help='Name of the experiment (default: "1000000.pt")'
+        '--epoch', type=int, default=1000000,
+        help='Name of the experiment (default: 1000000)'
     )
     
     return parser
@@ -148,7 +142,7 @@ tds_batch_size = args.tds_batch_size
 sample_id_num = args.sample_id_num
 sample_id_offset = args.sample_id_offset
 expname = args.expname
-ckpt = args.ckpt
+epoch = args.epoch
 device = 'cuda'
 debug_plot = False
 debug_statistics = False
@@ -158,13 +152,28 @@ exproot = r"/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projec
 figroot = r"/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/Figures/DiffusionReasoning/Figure_inpainting"
 expdir = join(exproot, expname)
 ckptdir = join(expdir, "checkpoints")
-ckpt_path = join(ckptdir, ckpt)
 outdir = join(expdir, "inpainting_results")
 os.makedirs(outdir, exist_ok=True)
 figexpdir = join(figroot, expname)
 os.makedirs(figexpdir, exist_ok=True)
 
-model_DiT = load_DiT_model(DiT_configs["DiT_S_1"], ckpt_path, device=device)
+# load the model property
+DiTargs = json.load(open(join(expdir, "args.json")))
+if DiTargs["cond"]:
+    num_classes = DiTargs.num_classes
+    class_dropout_prob = DiTargs["class_dropout_prob"]
+else:
+    num_classes = 0
+    class_dropout_prob = 1.0
+
+if "heldout_ids" in DiTargs:
+    heldout_rules = DiTargs["heldout_ids"]
+else:
+    heldout_rules = heldout_id_dict[DiTargs["train_attr_fn"]]
+
+ckpt_path = join(ckptdir, f"{epoch:07d}.pt")
+model_DiT = load_DiT_model(DiT_configs[DiTargs["model"]], ckpt_path, device=device,
+                           num_classes=num_classes, class_dropout_prob=class_dropout_prob, )
 
 attr_path = "/n/home12/binxuwang/Github/DiffusionReasoning/attr_all.npy"
 train_sample_img, labels_tsr = prepare_RAVEN_dataset(attr_path, device=device)
@@ -262,9 +271,10 @@ for rule_id in trange(40):
                             "C3_count": C3_count, "C2_count": C2_count, "valid_count": inpaintrow_validcount, "total": total,})
 
 inpaint_stats_df = pd.DataFrame(stats_col)
-inpaint_stats_df.to_csv(join(outdir, "inpaint_stats.csv"), index=False)
-inpaint_stats_df.to_pickle(join(outdir, "inpaint_stats.pkl"))
-pkl.dump(results_col, open(join(outdir, "inpaint_results.pkl"), "wb"))
+savestr = f"ep{epoch}_{sample_id_offset}_{sample_id_offset+sample_id_num}_batch{tds_batch_size}"
+inpaint_stats_df.to_csv(join(outdir, f"inpaint_stats_{savestr}.csv"), index=False)
+inpaint_stats_df.to_pickle(join(outdir, f"inpaint_stats_{savestr}.pkl"))
+pkl.dump(results_col, open(join(outdir, f"inpaint_results_{savestr}.pkl"), "wb"))
 
 # post hoc synopsys and analysis 
 inpaint_acc_tab = inpaint_stats_df.groupby("rule_id").agg({"inpaint_acc": "mean", "valid_acc": "mean", }) #"anyvalid_acc": "mean"
@@ -289,8 +299,8 @@ plt.axis("image")
 add_rectangles(heldout_rules)
 plt.xticks(np.arange(10)+0.5, [relation_dict[i] for i in range(10)], rotation=45)
 plt.yticks(np.arange(4)+0.5, [attribute_dict[i] for i in range(4)], rotation=0)
-plt.title(f"Inpainting C3 accuracy Twisted Sampler | Mean {mean_acc:.3f} train {trained_acc:.3f} heldout {heldout_acc:.3f}\n{expname}")
-saveallforms([outdir, figexpdir], "inpainting_C3_acc_rule_heatmap_pilot")
+plt.title(f"Inpainting C3 accuracy Twisted Sampler | Mean {mean_acc:.3f} train {trained_acc:.3f} heldout {heldout_acc:.3f}\n{expname} ep{epoch}")
+saveallforms([outdir, figexpdir], f"inpainting_C3_acc_rule_heatmap_{savestr}")
 plt.show()
 
 mean_acc = inpaint_acc_tab["valid_acc"].mean()
@@ -303,8 +313,8 @@ plt.axis("image")
 add_rectangles(heldout_rules)
 plt.xticks(np.arange(10)+0.5, [relation_dict[i] for i in range(10)], rotation=45)
 plt.yticks(np.arange(4)+0.5, [attribute_dict[i] for i in range(4)], rotation=0)
-plt.title(f"Inpainting row Validity Twisted Sampler | Mean {mean_acc:.3f} train {trained_acc:.3f} heldout {heldout_acc:.3f}\n{expname}")
-saveallforms([outdir, figexpdir], "inpainting_valid_acc_rule_heatmap_pilot")
+plt.title(f"Inpainting row Validity Twisted Sampler | Mean {mean_acc:.3f} train {trained_acc:.3f} heldout {heldout_acc:.3f}\n{expname} ep{epoch}")
+saveallforms([outdir, figexpdir], f"inpainting_valid_acc_rule_heatmap_{savestr}")
 plt.show()
 
 
