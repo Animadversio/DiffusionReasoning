@@ -35,6 +35,26 @@ for expname in "${exproot}"/090-RAVEN10_abstract*; do
 done
 
 
+for expname in "${exproot}"/090-RAVEN10_abstract*; do
+    encoding="--encoding digit"
+    if [[ "$expname" == *"onehot"* ]]; then
+        encoding="--encoding onehot"
+    fi
+
+    epochs=(1000000 20000 100000 200000 500000 700000)
+
+    # Loop over each epoch value
+    for epoch in "${epochs[@]}"; do
+        python DiT_repr_classifier_new_probe_CLI.py \
+            --expname "$(basename "$expname")" \
+            --epoch "$epoch" \
+            --t_scalars 0 1 10 25 50 100 250 500 1000 --use_ema \
+            --dim_red_method avgtoken pca384 \
+            --layers 0 2 5 8 11 \
+            --figdir "$figdir"
+    done
+
+done
 
 
 
