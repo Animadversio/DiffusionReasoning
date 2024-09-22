@@ -26,7 +26,9 @@ def get_rule_annot():
     return rule_table, relation_dict, attribute_dict
 
 rule_table, relation_dict, attribute_dict = get_rule_annot()
-
+relation_dict_brief = {k: v.replace("Progression","Prog").\
+                        replace("Arithmetic","Arith").\
+                        replace("Constant","Const")  for k,v in relation_dict.items()}
 rule_table_brief = {k: v.replace("Constant","Const").\
     replace("Progression","Prog").\
     replace("Arithmetic","Arith") for k,v in rule_table.items()}
