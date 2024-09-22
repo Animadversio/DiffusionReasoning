@@ -10,7 +10,7 @@ for expname in "${exproot}"/090-RAVEN10_abstract*; do
     python DiT_inpaint_tds_sampler_CLI.py \
         --tds_batch_size 25  --sample_id_num 50  --sample_id_offset 50 \
         --expname "$(basename "$expname")" \
-        --ckpt 1000000
+        --epoch 1000000
 
     epochs=(20000 100000 200000 500000 700000 900000)
     # Loop over each epoch value
@@ -22,7 +22,23 @@ for expname in "${exproot}"/090-RAVEN10_abstract*; do
     done
 done
 
+exproot="/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/DiT/results"
+for expname in "${exproot}"/{085..089}-RAVEN10_abstract*; do
+    echo "Processing experiment: ${expname}"
+    python DiT_inpaint_tds_sampler_CLI.py \
+        --tds_batch_size 25  --sample_id_num 50  --sample_id_offset 50 \
+        --expname "$(basename "$expname")" \
+        --epoch 1000000
 
+done
+for expname in "${exproot}"/{091..100}-RAVEN10_abstract*; do
+    echo "Processing experiment: ${expname}"
+    python DiT_inpaint_tds_sampler_CLI.py \
+        --tds_batch_size 25  --sample_id_num 50  --sample_id_offset 50 \
+        --expname "$(basename "$expname")" \
+        --epoch 1000000
+
+done
 
     # python DiT_repr_classifier_new_probe_CLI.py --expname "$(basename "$expname")" --epoch -1 \
     #     --t_scalars 0 1 10 25 50 100 250 500 1000 --dim_red_method pca128 pca384 pca512 pca1024 avgtoken lasttoken \
@@ -45,7 +61,16 @@ done
     # python DiT_repr_classifier_new_probe_CLI.py.py --expname "$(basename "$expname")" --epoch 1000000 \
     #     --t_scalars 0.1 --noPCA --figdir Figures_newrule
 
-
+for expname in "${exproot}"/{085..089,091..100}-RAVEN10_abstract*; do
+# for expnum in {085..100}; do
+#     if [ "$expnum" -eq 90 ]; then
+#         echo "Skipping experiment: ${expnum}-RAVEN10_abstract*"
+#         continue
+#     fi
+    # expname="${exproot}/${expnum}-RAVEN10_abstract*"
+    # for expname in "${exproot}"/{088,089,094,093,095,098,100}-RAVEN10_abstract*; do
+    echo "Processing experiment: $expname"
+done
 
 
 
