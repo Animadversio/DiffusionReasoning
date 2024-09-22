@@ -402,8 +402,8 @@ parser.add_argument("--dim_red_method", type=validate_dim_red,
 #                     help="Whether to use PCA for the feature vectors.")
 # parser.add_argument("--PC_dim", type=int, default=1024, 
 #                     help="The dimension of the PCA projection.")
-parser.add_argument("--figdir", type=str, default="Figures_newrule",
-                    help="The directory to save the figures.")
+# parser.add_argument("--figdir", type=str, default="Figures_newrule",
+#                     help="The directory to save the figures.")
 
 # model_SiT
 exproot = r"/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/SiT/results"
@@ -529,7 +529,8 @@ for t_scalar in args.t_scalars:
         plt.figure(figsize=(6, 4))
         sns.lineplot(data=syn_df, markers=True)
         plt.title(f"t_scalar: {t_scalar} Accuracy\n{expname}\n{ckpt_str} {dimred_str}")
-        saveallforms([repr_expdir, figdir],f"t{t_str}_{dimred_str}_{ckpt_str}_accuracy.png")
+        saveallforms([repr_expdir],f"t{t_str}_{dimred_str}_{ckpt_str}_accuracy.png")
+        # saveallforms([figdir],f"{expname}_t{t_str}_{dimred_str}_{ckpt_str}_accuracy.png")
         plt.show()
     del feature_col
     del feature_col_test
