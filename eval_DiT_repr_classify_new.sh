@@ -57,6 +57,39 @@ for expname in "${exproot}"/090-RAVEN10_abstract*; do
 done
 
 
+exproot="/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/DiT/results"
+figdir="/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/Figures/DiffusionReasoning/repr_rule_classify"
+
+for expname in "${exproot}"/098-RAVEN10_abstract-uncond-DiT_S_1-stream0_016M_heldout0*; do
+    encoding="--encoding digit"
+    if [[ "$expname" == *"onehot"* ]]; then
+        encoding="--encoding onehot"
+    fi
+
+    echo $expname
+    python DiT_repr_classifier_new_probe_CLI.py --expname "$(basename "$expname")" --epoch 1000000 --use_ema \
+        --t_scalars 0 1 10 25 50 100 250 500 1000 --dim_red_method avgtoken pca384 \
+        --layers 0 2 5 8 11 --figdir "$figdir"
+
+    epochs=(20000 100000 200000 500000 700000 900000)
+
+    # Loop over each epoch value
+    for epoch in "${epochs[@]}"; do
+        python DiT_repr_classifier_new_probe_CLI.py \
+            --expname "$(basename "$expname")" \
+            --epoch "$epoch" --use_ema \
+            --t_scalars 0 1 10 25 50 100 250 500 1000 \
+            --dim_red_method avgtoken pca384 \
+            --layers 0 2 5 8 11 \
+            --figdir "$figdir"
+    done
+
+    python DiT_repr_classifier_new_probe_CLI.py --expname "$(basename "$expname")" --epoch -1 \
+        --t_scalars 0 1 10 25 50 100 250 500 1000 --dim_red_method avgtoken pca384 \
+        --layers 0 2 5 8 11 --figdir "$figdir"
+done
+
+
 
 
 for expname in "${exproot}"/090-RAVEN10_abstract*; do

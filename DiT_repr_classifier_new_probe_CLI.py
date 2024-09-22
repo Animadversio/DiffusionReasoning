@@ -541,7 +541,7 @@ for t_scalar in args.t_scalars:
         plt.figure(figsize=(6, 4))
         sns.lineplot(data=syn_df, markers=True)
         plt.title(f"t_scalar: {t_scalar} Accuracy\n{expname}\n{ckpt_str} {dimred_str}")
-        saveallforms([repr_expdir, figdir],f"t{t_str}_{dimred_str}_{ckpt_str}_accuracy.png")
+        saveallforms([repr_expdir,],f"t{t_str}_{dimred_str}_{ckpt_str}_accuracy.png")
         plt.show()
     del feature_col
     del feature_col_test
