@@ -415,7 +415,7 @@ layers = args.layers
 t_scalars = args.t_scalars
 # PC_dim = args.PC_dim
 # dim_red = args.dim_red_method
-figdir = args.figdir
+# figdir = args.figdir
 
 expdir = join(exproot, expname)
 ckptdir = join(expdir, "checkpoints")
