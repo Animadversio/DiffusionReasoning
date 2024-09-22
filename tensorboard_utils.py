@@ -72,3 +72,70 @@ def extract_last_step_summary(tb_data_col, simplify_runname=None, exclude_runs=(
         result_df.append(last_step_values)
     result_df = pd.concat(result_df)
     return result_df
+
+
+def extract_last_K_step_avg_summary(tb_data_col, simplify_runname=None, exclude_runs=(), K=1, compute_std=False):
+    """
+    Extracts a summary by averaging over the last k steps for each tag in TensorBoard data.
+
+    Parameters:
+    - tb_data_col (dict): Dictionary where keys are run names and values are DataFrames with 'tag', 'step', and 'value' columns.
+    - simplify_runname (callable, optional): Function to simplify run names. Defaults to None.
+    - exclude_runs (tuple, optional): Runs to exclude from processing. Defaults to empty tuple.
+    - k (int, optional): Number of last steps to average over. Defaults to 1.
+
+    Returns:
+    - pd.DataFrame: A DataFrame containing the averaged values per tag for each run.
+    """
+    # Initialize a list to collect per-run DataFrames
+    result_list = []
+    
+    # Iterate over each run in the TensorBoard data collection
+    for run_name, run_data in tb_data_col.items():
+        if run_name in exclude_runs:
+            print(f"Excluding {run_name}")
+            continue
+        
+        # Ensure the data is sorted by step for each tag
+        run_data_sorted = run_data.sort_values(by=['tag', 'step'])
+        
+        # Group by 'tag' and take the last k steps for each tag
+        last_k_steps = run_data_sorted.groupby('tag').tail(K)
+        
+        # Compute the average 'value' for each tag over the last k steps
+        averaged_values = last_k_steps.groupby('tag')['value'].mean().reset_index()
+        
+        # Get step information: max and min step in the last k steps per run
+        step_info = last_k_steps.groupby('tag')['step'].agg(['max', 'min']).reset_index()
+        max_step = step_info['max'].max()
+        min_step = step_info['min'].min()
+        
+        # Assign the run name, simplified if a function is provided
+        averaged_values["run_name"] = simplify_runname(run_name) if simplify_runname is not None else run_name
+        
+        # Pivot the DataFrame to have tags as columns
+        pivot_df = averaged_values.pivot(index='run_name', columns='tag', values='value')
+        
+        # Add step information
+        pivot_df["full_name"] = run_name
+        pivot_df["step"] = max_step
+        pivot_df["step/epoch"] = min_step
+        # join the std values
+        if compute_std:
+            std_values = last_k_steps.groupby('tag')['value'].std().reset_index()
+            std_values["run_name"] = simplify_runname(run_name) if simplify_runname is not None else run_name
+            pivot_df_std = std_values.pivot(index='run_name', columns='tag', values='value')
+            # rename columns
+            pivot_df_std.columns = [f"{col}_std" for col in pivot_df_std.columns]
+            pivot_df = pivot_df.join(pivot_df_std) 
+
+        # Append the processed DataFrame to the result list
+        result_list.append(pivot_df)
+    
+    # Concatenate all per-run DataFrames into a single DataFrame
+    if result_list:
+        result_df = pd.concat(result_list)
+    else:
+        result_df = pd.DataFrame()
+    
+    return result_df
