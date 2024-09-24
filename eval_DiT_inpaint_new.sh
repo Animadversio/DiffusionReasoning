@@ -111,4 +111,4 @@ for expname in "${exproot}"/{085..089,091..100}-RAVEN10_abstract*; do
     # for expname in "${exproot}"/{088,089,094,093,095,098,100}-RAVEN10_abstract*; do
     echo "Processing experiment: $expname"
 done
-
+    
