@@ -184,8 +184,10 @@ def train_pca_sgd_classifiers(
         t0 = time.time()
 
         # Reshape feature matrices
-        featmat = feature_col[layerkey].view(len(feature_col[layerkey]), -1)
-        featmat_test = feature_col_test[layerkey].view(len(feature_col_test[layerkey]), -1)
+        # featmat = feature_col[layerkey].view(len(feature_col[layerkey]), -1)
+        # featmat_test = feature_col_test[layerkey].view(len(feature_col_test[layerkey]), -1)
+        featmat = feature_col[layerkey].reshape(len(feature_col[layerkey]), -1)
+        featmat_test = feature_col_test[layerkey].reshape(len(feature_col_test[layerkey]), -1)
 
         # Compute mean of training features
         featmean = featmat.mean(dim=0)
@@ -294,3 +296,56 @@ def extract_features_DiT(
         feature_col[key] = th.cat(feature_col[key], dim=0)
         print(f"{key}: {feature_col[key].shape}")
     return feature_col
+
+
+
+def train_dimred_sgd_classifiers(
+    feature_col,
+    feature_col_test,
+    y_train,
+    y_test,
+    dimred_str="pca",
+    num_classes=40,
+    batch_size=None,
+    num_epochs=5000,
+    print_every=250,
+    eval_every=1000,
+    learning_rate=0.005,
+    device='cuda'  # Specify 'cuda' or 'cpu'
+):
+    if dimred_str == "avgtoken":
+        feature_red_col = {k: v.mean(dim=1) for k, v in feature_col.items()}
+        feature_red_col_test = {k: v.mean(dim=1) for k, v in feature_col_test.items()}
+        noPCA = True
+        PC_dim = None
+    elif dimred_str == "lasttoken":
+        feature_red_col = {k: v[:, -1] for k, v in feature_col.items()}
+        feature_red_col_test = {k: v[:, -1] for k, v in feature_col_test.items()}
+        noPCA = True
+        PC_dim = None
+    if dimred_str == "avgspace":
+        feature_red_col = {k: v.mean(dim=(2,3)) for k, v in feature_col.items()}
+        feature_red_col_test = {k: v.mean(dim=(2,3)) for k, v in feature_col_test.items()}
+        noPCA = True
+        PC_dim = None
+    elif dimred_str == "none":
+        noPCA = True
+        PC_dim = None
+        feature_red_col = feature_col
+        feature_red_col_test = feature_col_test
+    elif dimred_str.startswith("pca"):
+        noPCA = False
+        PC_dim = int(dimred_str[3:])
+        feature_red_col = feature_col
+        feature_red_col_test = feature_col_test
+    else:
+        raise ValueError(f"Invalid dimensionality reduction method: {dimred_str}")
+    
+    model_PCA_col, PC_proj_col, results_col = train_pca_sgd_classifiers(
+        feature_red_col, feature_red_col_test, y_train, y_test,
+        PC_dim=PC_dim, noPCA=noPCA, num_classes=num_classes,
+        batch_size=batch_size, num_epochs=num_epochs, print_every=print_every,
+        eval_every=eval_every, learning_rate=learning_rate, device=device
+    )
+    return model_PCA_col, PC_proj_col, results_col
+
