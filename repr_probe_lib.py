@@ -194,7 +194,7 @@ def train_pca_sgd_classifiers(
         featdim = featmat.shape[1]
         t1 = time.time()
 
-        if noPCA or featdim <= PC_dim:
+        if noPCA or (featdim <= PC_dim):
             # note the special case where PCdim is higher than the feature dimension, then no need. 
             # Center and normalize features without PCA
             feat_PCA = (featmat - featmean[None, :]).to(device)
@@ -202,6 +202,7 @@ def train_pca_sgd_classifiers(
             feat_PCA = feat_PCA / feat_PCA_std[None, :]
             feat_PCA_test = (featmat_test - featmean[None, :]).to(device)
             feat_PCA_test = feat_PCA_test / feat_PCA_std[None, :]
+            V = None
         else:
             # Perform PCA
             centered_feat = (featmat - featmean[None, :]).to(device)
@@ -242,7 +243,7 @@ def train_pca_sgd_classifiers(
         # Store the trained model and PCA projection parameters
         model_PCA_col[layerkey] = model
         PC_proj_col[layerkey] = {
-            'V': V.cpu() if not noPCA or featdim <= PC_dim else None,  # PCA components
+            'V': V,  # PCA components
             'mean': featmean.cpu(),
             'std': feat_PCA_std.cpu()
         }
