@@ -43,22 +43,7 @@ from train_edm import create_model, edm_sampler, EDM
 
 import circuit_toolkit
 from circuit_toolkit.layer_hook_utils import print_specific_layer, get_module_name_shapes, featureFetcher_module
-# config_mapping = {
-#     "WideBlnrX3_new_RAVEN10_abstract_20240315-1327": 
-#         # --layers_per_block 2 --model_channels 128 --channel_mult 1 2 4 --attn_resolutions 9 3 --train_batch_size 256 --spatial_matching bilinear
-#         dict(layers_per_block=2, model_channels=128, channel_mult=[1, 2, 4], attn_resolutions=[9, 3], spatial_matching="bilinear"),
-#     "WideBlnrX3_new_RAVEN10_abstract_20240412-1347":
-#         dict(layers_per_block=2, model_channels=128, channel_mult=[1, 2, 4], attn_resolutions=[9, 3], spatial_matching="bilinear"),
-#     "BigBlnrX3_new_RAVEN10_abstract_20240412-0143":
-#         # --layers_per_block 3 --model_channels 192 --channel_mult 1 2 4 --attn_resolutions 9 3 --train_batch_size 256 --spatial_matching bilinear
-#         dict(layers_per_block=3, model_channels=192, channel_mult=[1, 2, 4], attn_resolutions=[9, 3], spatial_matching="bilinear"),
-#     "WideBlnrX3_new_noattn_RAVEN10_abstract_20240412-1254":
-#         # --layers_per_block 2 --model_channels 128 --channel_mult 1 2 4 --attn_resolutions 0   --train_batch_size 256 --spatial_matching bilinear
-#         dict(layers_per_block=2, model_channels=128, channel_mult=[1, 2, 4], attn_resolutions=[0], spatial_matching="bilinear"),
-#     "BaseBlnrX3_new_RAVEN10_abstract_20240313-1736": 
-#         # --layers_per_block 1 --model_channels 64  --channel_mult 1 2 4 --attn_resolutions 9 3 --train_batch_size 256 --spatial_matching bilinear
-#         dict(layers_per_block=1, model_channels=64, channel_mult=[1, 2, 4], attn_resolutions=[9, 3], spatial_matching="bilinear"),
-# }
+
 config_mapping = {
     "BaseBlnrX3" : dict(layers_per_block=1, model_channels=64, channel_mult=[1, 2, 4], attn_resolutions=[9, 3], spatial_matching="bilinear"),
     "WideBlnrX3" : dict(layers_per_block=2, model_channels=128, channel_mult=[1, 2, 4], attn_resolutions=[9, 3], spatial_matching="bilinear"),
@@ -131,7 +116,6 @@ parser.add_argument("--dim_red_method", type=validate_dim_red,
 # parser.add_argument("--figdir", type=str, default="Figures_newrule",
 #                     help="The directory to save the figures.")
 
-# 80.000, 53.559, 34.992, 22.240, 13.699, 8.139, 4.637, 2.515, 1.287, 0.613, 0.267, 0.1, 0.035, 0.010, 0.002
 
 # model_EDM
 exproot = r"/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/mini_edm/exps"
@@ -141,10 +125,13 @@ epoch = args.epoch
 use_ema = args.use_ema
 layers = args.layers
 t_scalars = args.t_scalars
+if not use_ema:
+    raise NotImplementedError("Only EMA models are supported.")
 # PC_dim = args.PC_dim
 # dim_red = args.dim_red_method
 # figdir = args.figdir
 # layers = ["input", 'enc.9x9_conv', 'enc.3x3_down', 'enc.1x1_down', 'dec.1x1_in0', 'dec.1x1_in1', 'dec.3x3_up', 'dec.9x9_up', "dec.9x9_aux_norm", "dec.9x9_aux_conv", ]
+# 80.000, 53.559, 34.992, 22.240, 13.699, 8.139, 4.637, 2.515, 1.287, 0.613, 0.267, 0.1, 0.035, 0.010, 0.002
 
 DATASET = "RAVEN10_abstract"
 # prepare the dataset, training and testing
@@ -181,7 +168,6 @@ repr_expdir = join(expdir, "repr_classifier")
 os.makedirs(repr_expdir, exist_ok=True)
 model_scale = expname.split("_")[0]
 config_ft = get_default_config(DATASET, **config_mapping[model_scale])
-use_ema = True
 if epoch == -1:
     edm, model_EDM = create_edm_new(None, config_ft, device) 
     ckpt_str = "ckptRNDINIT"
@@ -195,6 +181,7 @@ else:
     
 fetcher = featureFetcher_module()
 record_module_list = layers
+# Note hook the ema model instead of the edm.model. If we are using the EMA forward. 
 for blockname in list(edm.ema.enc):
     if f"enc.{blockname}" in record_module_list:
         fetcher.record_module(edm.ema.enc[blockname], target_name=f"enc.{blockname}")
