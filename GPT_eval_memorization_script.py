@@ -70,6 +70,8 @@ for expfullname in success_syndf.full_name.values:
     dataset_size = extract_and_convert(expname)
     examples_per_rule = int(dataset_size * 1E6 / 40)
     print(f"examples_per_rule: {examples_per_rule}")
+    if examples_per_rule > 100000:
+        continue
     # epoch_list, rule_list_all, consistency_all = extract_rule_list_from_eval_col(eval_col, is_abinit=True) # note set is_abinit to True
     # rule_cnt_mat, cons3_rule_cnt_mat, cons2_rule_cnt_mat = format_rule_list_to_mat(rule_list_all, consistency_all)
 
