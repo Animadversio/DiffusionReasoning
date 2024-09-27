@@ -81,7 +81,7 @@ for expfullname in success_syndf.full_name.values:
     mem_stats_df.to_csv(join(figexpdir, "memorization_stats_train_set.csv"))
     print(mem_stats_df.tail(5))
     figh = visualize_memorization_dynamics(mem_stats_df, expname=expname)
-    figh.savefig(join(figexpdir, "memorization_dynamics_train_set.png"))
+    saveallforms(figexpdir, "memorization_dynamics_train_set", figh)
     
     try:
         ctrl_tsr_X, ctrl_tsr_y = get_RAVEN_dataset(n_classes=40, cmb_per_class=examples_per_rule, heldout_ids=heldout_ids, cmb_offset=20000, cache=True)
