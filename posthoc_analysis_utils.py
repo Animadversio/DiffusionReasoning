@@ -27,7 +27,7 @@ def extract_and_convert(string):
     return None
 
 
-def sweep_collect_sample(expname, exproot, prefix=None, non_prefix=None):
+def sweep_collect_sample(expname, exproot, prefix="", non_prefix=None, format='%07d.pt'):
     assert os.path.exists(join(exproot, expname, "samples")), expname  
     # print(sorted(os.listdir(join(exproot, expname, "samples"))))
     print(f"Extracted data from {join(exproot, expname, 'samples')}")
@@ -38,7 +38,7 @@ def sweep_collect_sample(expname, exproot, prefix=None, non_prefix=None):
     epoch_nums = sorted([int(f.split(prefix)[-1].split(".pt")[0]) for f in os.listdir(join(exproot, expname,'samples')) if not (non_prefix in f)])
     eval_col = {}
     for epoch_num in tqdm(epoch_nums):
-        samples_eval = torch.load(join(exproot, expname, 'samples', f"{epoch_num:07d}.pt"))
+        samples_eval = torch.load(join(exproot, expname, 'samples', format % epoch_num)) #f"{prefix}{epoch_num:07d}.pt"))
         eval_col[epoch_num] = samples_eval
     return eval_col
 
