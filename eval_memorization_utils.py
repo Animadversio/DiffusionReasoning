@@ -217,6 +217,42 @@ def visualize_memorization_dynamics(mem_stats_df, expname=''):
     return figh
 
 
+def visualize_memorization_with_ctrl_dynamics(mem_stats_df, mem_stats_ctrl_df, expname=''):
+    figh, axs = plt.subplots(1, 2, figsize=(10, 6))
+    plt.sca(axs[0])
+    sns.lineplot(data=mem_stats_df, x="epoch", y="mem_rowfrac", label="full row")   
+    sns.lineplot(data=mem_stats_df, x="epoch", y="mem_attr0_rowfrac", label="row attr0")
+    sns.lineplot(data=mem_stats_df, x="epoch", y="mem_attr1_rowfrac", label="row attr1")
+    sns.lineplot(data=mem_stats_df, x="epoch", y="mem_attr2_rowfrac", label="row attr2")
+    sns.lineplot(data=mem_stats_df, x="epoch", y="mem_samplefrac", label="full sample")
+    sns.lineplot(data=mem_stats_ctrl_df, x="epoch", y="mem_rowfrac", label="full row (ctrl)", linestyle=':', color="C0")
+    sns.lineplot(data=mem_stats_ctrl_df, x="epoch", y="mem_attr0_rowfrac", label="row attr0 (ctrl)", linestyle=':', color="C1")
+    sns.lineplot(data=mem_stats_ctrl_df, x="epoch", y="mem_attr1_rowfrac", label="row attr1 (ctrl)", linestyle=':', color="C2")
+    sns.lineplot(data=mem_stats_ctrl_df, x="epoch", y="mem_attr2_rowfrac", label="row attr2 (ctrl)", linestyle=':', color="C3")
+    sns.lineplot(data=mem_stats_ctrl_df, x="epoch", y="mem_samplefrac", label="ctrl sample (ctrl)", linestyle=':', color="C4")
+    plt.title("Row memorization fraction")
+    plt.ylabel("row fraction")
+    plt.xlabel("step")
+    plt.legend()
+    plt.sca(axs[1])
+    sns.lineplot(data=mem_stats_df, x="epoch", y="mem_panfrac", label="full panel")
+    sns.lineplot(data=mem_stats_df, x="epoch", y="mem_attr0_panfrac", label="panel attr0")
+    sns.lineplot(data=mem_stats_df, x="epoch", y="mem_attr1_panfrac", label="panel attr1")
+    sns.lineplot(data=mem_stats_df, x="epoch", y="mem_attr2_panfrac", label="panel attr2")
+    sns.lineplot(data=mem_stats_ctrl_df, x="epoch", y="mem_panfrac", label="full panel (ctrl)", linestyle=':', color="C0")
+    sns.lineplot(data=mem_stats_ctrl_df, x="epoch", y="mem_attr0_panfrac", label="panel attr0 (ctrl)", linestyle=':', color="C1")
+    sns.lineplot(data=mem_stats_ctrl_df, x="epoch", y="mem_attr1_panfrac", label="panel attr1 (ctrl)", linestyle=':', color="C2")
+    sns.lineplot(data=mem_stats_ctrl_df, x="epoch", y="mem_attr2_panfrac", label="panel attr2 (ctrl)", linestyle=':', color="C3")
+    plt.title("Panel memorization fraction")
+    plt.ylabel("panel fraction")
+    plt.xlabel("step")
+    plt.legend()
+    plt.suptitle(f"Memorization of training set at various level\n{expname}")
+    # saveallforms(figexpdir, "memorization_levels_dynamics", figh)
+    plt.show()
+    return figh
+
+
 def compute_memorization_binary_joint(sample_tsr, train_X_panel_set):
     _, gen_sample_panels_list = extract_panel_mat_set(sample_tsr, outtype=list)
     pancnt, panfrac, idxlist = check_fraction_train_set_idxlist(gen_sample_panels_list, train_X_panel_set)
