@@ -68,9 +68,11 @@ for expname in "${exproot}"/{101..102}-RAVEN10_abstract*; do
         --epoch 1000000
 done
 
-for expname in "${exproot}"/{101..102}-RAVEN10_abstract*; do
+
+exproot="/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/DiT/results"
+for expname in "${exproot}"/{098,097}-RAVEN10_abstract*; do
     echo $expname
-    epochs=(20000 100000 200000 500000 700000 900000)
+    epochs=(20000 100000 200000 500000 700000 1000000)
     # Loop over each epoch value
     for epoch in "${epochs[@]}"; do
         python DiT_inpaint_tds_sampler_CLI.py \
@@ -79,6 +81,34 @@ for expname in "${exproot}"/{101..102}-RAVEN10_abstract*; do
             --epoch "$epoch"
     done
 done
+
+
+exproot="/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/DiT/results"
+for expname in "${exproot}"/090-RAVEN10_abstract*; do
+    echo $expname
+    bsizes=(1 2 4 8 16 32 64 128 256)
+    # Loop over each epoch value
+    for bsize in "${bsizes[@]}"; do
+        python DiT_inpaint_tds_sampler_CLI.py \
+            --tds_batch_size "$bsize"  --sample_id_num 50  --sample_id_offset 50 \
+            --expname "$(basename "$expname")" \
+            --epoch 1000000
+    done
+done
+
+exproot="/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/DiT/results"
+for expname in "${exproot}"/090-RAVEN10_abstract*; do
+    echo $expname
+    steps=(10 20 50 80 125 250 500 1000)
+    # Loop over each epoch value
+    for step in "${steps[@]}"; do
+        python DiT_inpaint_tds_sampler_CLI.py \
+            --tds_batch_size 25 --tds_step "$step" --sample_id_num 50  --sample_id_offset 50 \
+            --expname "$(basename "$expname")" \
+            --epoch 1000000
+    done
+done
+
 
     # python DiT_repr_classifier_new_probe_CLI.py --expname "$(basename "$expname")" --epoch -1 \
     #     --t_scalars 0 1 10 25 50 100 250 500 1000 --dim_red_method pca128 pca384 pca512 pca1024 avgtoken lasttoken \

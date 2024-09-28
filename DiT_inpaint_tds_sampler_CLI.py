@@ -125,6 +125,10 @@ def create_arg_parser():
         '--epoch', type=int, default=1000000,
         help='Name of the experiment (default: 1000000)'
     )
+    parser.add_argument(
+        '--tds_step', type=int, default=100,
+        help='step of tds sampling (default: 100)'
+    )
     
     return parser
 
@@ -143,6 +147,7 @@ sample_id_num = args.sample_id_num
 sample_id_offset = args.sample_id_offset
 expname = args.expname
 epoch = args.epoch
+tds_step = args.tds_step
 device = 'cuda'
 debug_plot = False
 debug_statistics = False
@@ -184,7 +189,7 @@ dataset_Xstd = th.tensor([2.5, 3.5, 3.5]).view(1, 3, 1, 1).to(device)
 # ### configure of the TDS sampler and inpainting task
 diffusion_config = {'learn_sigma': True,
 'noise_schedule': 'linear',
-'timestep_respacing': '100',
+'timestep_respacing': f'{tds_step}',
 'sampler': 'tds',
 'use_kl': False,
 'predict_xstart': False,
@@ -271,7 +276,7 @@ for rule_id in trange(40):
                             "C3_count": C3_count, "C2_count": C2_count, "valid_count": inpaintrow_validcount, "total": total,})
 
 inpaint_stats_df = pd.DataFrame(stats_col)
-savestr = f"ep{epoch}_{sample_id_offset}_{sample_id_offset+sample_id_num}_batch{tds_batch_size}"
+savestr = f"ep{epoch}_{sample_id_offset}_{sample_id_offset+sample_id_num}_batch{tds_batch_size}" + (f"_step{tds_step}" if tds_step != 100 else "")
 inpaint_stats_df.to_csv(join(outdir, f"inpaint_stats_{savestr}.csv"), index=False)
 inpaint_stats_df.to_pickle(join(outdir, f"inpaint_stats_{savestr}.pkl"))
 pkl.dump(results_col, open(join(outdir, f"inpaint_results_{savestr}.pkl"), "wb"))
