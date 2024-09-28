@@ -53,7 +53,7 @@ syndf_diff = pd.read_csv(join(tabdir, "diffusion_family_comb_tensorboard_data_la
 # %% [markdown]
 # ### Mass produce
 exproot_dict = {"GPT2": GPT_exproot, "SSM": SSM_exproot, "DiT": DiT_exproot, "EDM": EDM_exproot, "SiT": SiT_exproot}
-partial_syndf = syndf_diff.query("step > 900000 and dataset_size == 0.16 and heldout == True and model_class in ['SiT','EDM','DiT']")
+partial_syndf = syndf_diff.query("step > 900000 and dataset_size == 0.16 and heldout == True and model_class in ['SiT']") # ,'EDM','DiT'
 # expfullname = 'GPT2_medium_RAVEN_uncond_heldout0_stream0_16M-20240820-024019/tensorboard_logs'
 for _, exprow in partial_syndf.iterrows():
     #expfullname in partial_syndf.full_name.values:
@@ -86,7 +86,7 @@ for _, exprow in partial_syndf.iterrows():
     if exprow.model_class == "EDM":
         sample_col = sweep_collect_sample(expname, exproot, prefix="tensor_", non_prefix=prefix, format='tensor_%d.pt')
     else:
-        sample_col = sweep_collect_sample(expname, exproot, prefix="", non_prefix=prefix, format='%07d.pt')
+        sample_col = sweep_collect_sample(expname, exproot, prefix=None, non_prefix=prefix, format='%07d.pt')
     dataset_size = extract_and_convert(expname)
     examples_per_rule = int(dataset_size * 1E6 / 40)
     print(f"examples_per_rule: {examples_per_rule}")
