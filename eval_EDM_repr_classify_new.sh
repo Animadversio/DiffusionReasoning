@@ -33,6 +33,31 @@ done
 
 
 
+exproot="/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/mini_edm/exps"
+# Assuming the experiment names follow the format "XXX-RAVEN10_abstract*"
+for expname in "${exproot}"/WideBlnrX3_new_stream0_16M_heldout0_RAVEN10_abstract_20240708*; do
+    encoding="--encoding digit"
+    if [[ "$expname" == *"onehot"* ]]; then
+        encoding="--encoding onehot"
+    fi
+
+    epochs=(-1 500000 900000 200000)
+
+    # Loop over each epoch value
+    for epoch in "${epochs[@]}"; do
+        python EDM_repr_classifier_new_probe_CLI.py \
+            --expname "$(basename "$expname")" \
+            --use_ema --epoch "$epoch" \
+            --dim_red_method avgspace pca384 
+            # --t_scalars 0 1 10 25 50 100 250 500 1000 --layers 0 2 5 8 11\
+    done
+    
+done
+
+
+
+
+
 
 
 
