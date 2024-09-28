@@ -57,6 +57,7 @@ syndf_diff = pd.read_csv(join(tabdir, "diffusion_family_comb_tensorboard_data_la
 # ### Mass produce
 exproot_dict = {"GPT2": GPT_exproot, "SSM": SSM_exproot, "DiT": DiT_exproot, "EDM": EDM_exproot, "SiT": SiT_exproot}
 partial_syndf = syndf_diff.query("step > 900000 and dataset_size == 0.16 and heldout == False and model_class in ['SiT','EDM','DiT']") # 
+partial_syndf = syndf_diff.query("step > 900000 and dataset_size == 0.016 and heldout == False and model_class in ['SiT','EDM','DiT']") # 
 # expfullname = 'GPT2_medium_RAVEN_uncond_heldout0_stream0_16M-20240820-024019/tensorboard_logs'
 for _, exprow in partial_syndf.iterrows():
     #expfullname in partial_syndf.full_name.values:
