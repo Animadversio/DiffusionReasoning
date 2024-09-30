@@ -94,7 +94,7 @@ for rep in range(reps):
         stoch_str = "_".join([f"{k}{v}" for k, v in stoch_kwargs.items()])
         # Now, let's do the same for the SDE DDPM sampling
         for steps in [5, 10, 20, 50, 100, 200, 500, 1000]:
-            print(f"Sampling with Heun{steps}...rep{rep}")
+            print(f"Sampling with HeunStoch{steps}...rep{rep} {stoch_str}")
             noise = th.randn(batch_size, 3, 9, 9, device="cuda", generator=th.Generator(device='cuda').manual_seed(rep))
             samples = edm_sampler_stoch(edm, noise, num_steps=steps,
                                         **stoch_kwargs).detach()
