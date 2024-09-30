@@ -74,9 +74,9 @@ def extract_rule_list_from_eval_col(eval_col, is_abinit = False):
     return epoch_list, rule_list_all, consistency_all
 
 
-def extract_rule_list_from_eval_col_Diffusion(eval_col, ):
+def extract_rule_list_from_eval_col_Diffusion(eval_col, sort_key=True):
     print("diffusion model, just fetch ab init generation")
-    epoch_list = sorted(list(eval_col.keys()))
+    epoch_list = sorted(list(eval_col.keys())) if sort_key else list(eval_col.keys())
     rule_list_all = []
     consistency_all = []
     for epoch in eval_col.keys():
