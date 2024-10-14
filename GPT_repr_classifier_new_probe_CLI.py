@@ -51,7 +51,10 @@ def load_gpt2_raven_model(expdir, pth_name='gpt2_final.pth'):
     # load the model
     gpt2_raven = MultiIdxGPT2Model(attribute_dims=(7,10,10), vocab_size=27, max_length=83, 
                                    n_embd=n_embd, n_class=n_class, n_layer=n_layer, n_head=n_head)
-    gpt2_raven.load_state_dict(th.load(join(expdir, 'ckpt', pth_name)))
+    if pth_name is not None:
+        gpt2_raven.load_state_dict(th.load(join(expdir, 'ckpt', pth_name)))
+    else:
+        print("Random initialization")
     # count the number of parameters
     num_params = sum(p.numel() for p in gpt2_raven.parameters())
     print(f"Number of parameters: {num_params}")
@@ -140,8 +143,15 @@ os.makedirs(repr_expdir, exist_ok=True)
 os.makedirs(figexpdir, exist_ok=True)
 config = json.load(open(join(expdir, 'config.json')))
 heldout_ids = config['heldout_id']
-gpt2_raven = load_gpt2_raven_model(expdir, pth_name=f'gpt2_step{train_step}.pth')
-ckpt_str = f"ckpt{train_step:07d}"
+if train_step == -1:
+    gpt2_raven = load_gpt2_raven_model(expdir, pth_name=None)
+    ckpt_str = "ckptRNDINIT"
+    print("Random initialization")
+    pass 
+else:
+    gpt2_raven = load_gpt2_raven_model(expdir, pth_name=f'gpt2_step{train_step}.pth')
+    ckpt_str = f"ckpt{train_step:07d}"
+    print(f"Loaded {ckpt_str}: from {expdir}/ckpt/gpt2_step{train_step}.pth")
 # %% [markdown]
 # ### Representation recording
 fetcher = featureFetcher_module()
