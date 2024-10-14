@@ -213,6 +213,7 @@ def completion_eval(eval_samples, model, cond=None, device='cuda', num_mask=9, b
     # eval_complete = sample_next_token(model, eval_samples[:,:-num_mask,:], 
     #                                   max_length=81, strategy=strategy, device=device).cpu()
     # eval_complete_attr = seqtsr2attrtsr(eval_complete, h=3, w=3, p=3, R=3)
+    # note we need to denormalize, offset by - 1
     eval_complete = eval_complete - 1
     eval_complete_img = seqtsr2imgtsr(eval_complete, h=3, w=3, p=3, R=3)
     C3_list, C2_list, rule_col_list = infer_rule_from_sample_batch(eval_complete_img)
