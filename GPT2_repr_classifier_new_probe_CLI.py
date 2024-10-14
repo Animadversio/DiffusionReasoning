@@ -19,22 +19,20 @@ import time
 
 import sys
 sys.path.append('/n/home12/binxuwang/Github/DiffusionReasoning')
-from edm_utils import parse_train_logfile
-from dataset_utils import onehot2attr_tsr
 from stats_plot_utils import estimate_CI, shaded_error, saveallforms
-from stats_plot_utils import shaded_error, add_rectangles
-from rule_utils import get_rule_list, get_obj_list, get_rule_img, check_consistent
 from rule_new_utils import get_rule_annot
 from GPT_models.GPT_RAVEN_model_lib import MultiIdxGPT2Model, completion_eval, seqtsr2imgtsr, preprocess_ids
 from repr_probe_lib import train_pca_sgd_classifiers, fit_SGD_linear_classifier, train_dimred_sgd_classifiers, extract_features_GPT
+from stats_plot_utils import visualize_cm
+from sklearn.metrics import confusion_matrix
 import circuit_toolkit
 print(circuit_toolkit.__file__)
 from circuit_toolkit.layer_hook_utils import print_specific_layer, get_module_name_shapes, featureFetcher_module
 
-# %%
+# %% Set up paths
 GPTroot = r"/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/GPT2_raven"
+figroot = r"/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/Figures/DiffusionReasoning/Figure_repr_linear_probe"
 
-# %%
 def load_gpt2_raven_model(expdir, pth_name='gpt2_final.pth'):
     # load the model configuration
     config = json.load(open(join(expdir, 'config.json')))
@@ -60,6 +58,60 @@ def load_gpt2_raven_model(expdir, pth_name='gpt2_final.pth'):
     return gpt2_raven.to('cuda').eval()
 
 
+import argparse
+def validate_dim_red(value):
+    pattern = re.compile(r'^(pca\d+|none|avgtoken|lasttoken)$')
+    if not pattern.match(value):
+        raise argparse.ArgumentTypeError(
+            f"Invalid choice: '{value}'. Must match one of: pca, none, avgtoken, lasttoken."
+        )
+    return value
+
+parser = argparse.ArgumentParser(description="Load and evaluate a GPT-2 RAVEN model.")
+# Experiment configuration
+parser.add_argument(
+    "--expname",
+    type=str,
+    default="GPT2_medium_RAVEN_uncond_heldout0_stream0_16M-20240820-024019",
+    help="The name of the GPT-2 experiment."
+)
+parser.add_argument(
+    "--train_step",
+    type=int,
+    default=999999,
+    help="The training step of the model checkpoint to load."
+)
+# Evaluation parameters
+parser.add_argument(
+    "--layers",
+    type=int, default=[0, 5, 11, 17, 23], nargs="+", 
+    help="The layers of the GPT-2 model to evaluate."
+)
+parser.add_argument(
+    "--dim_red_method", 
+    type=validate_dim_red, default=["avgtoken", "lasttoken"], nargs="+",
+    help="The dimensionality reduction method(s) to apply to the features. Options: 'pca512', 'pca256', 'none', 'avgtoken', 'lasttoken'."
+)
+parser.add_argument(
+    "--figdir",
+    type=str, default="Figures_newrule",
+    help="The directory to save the output figures."
+)
+# Training parameters
+parser.add_argument(
+    "--batch_size",
+    type=int,
+    default=1024,
+    help="Batch size for data loading."
+)
+
+args = parser.parse_args()
+expname = args.expname
+train_step = args.train_step
+layers = args.layers
+dim_red_method = args.dim_red_method
+figdir = args.figdir
+batch_size = args.batch_size
 
 # ### Load the training and test datasets
 train_attrs = np.load("/n/home12/binxuwang/Github/DiffusionReasoning/attr_all.npy")
@@ -81,25 +133,26 @@ test_dataset = TensorDataset(X_test, y_test)
 
 # %% [markdown]
 # ## Load example model
-train_step = 999999
-expname = "GPT2_medium_RAVEN_uncond_heldout0_stream0_16M-20240820-024019"
-
 expdir = join(GPTroot, expname)
 repr_expdir = join(expdir, 'repr_classifier')
+figexpdir = join(figroot, expname)
 os.makedirs(repr_expdir, exist_ok=True)
+os.makedirs(figexpdir, exist_ok=True)
 config = json.load(open(join(expdir, 'config.json')))
 heldout_ids = config['heldout_id']
 gpt2_raven = load_gpt2_raven_model(expdir, pth_name=f'gpt2_step{train_step}.pth')
 ckpt_str = f"ckpt{train_step:07d}"
 # %% [markdown]
 # ### Representation recording
-# layers = [0, 5, 11, 17, 23]
 fetcher = featureFetcher_module()
 for i in args.layers:
+    if i >= len(gpt2_raven.gpt2.h):
+        print(f"Layer {i} not found in the model. Skipping.")
+        continue
     fetcher.record_module(gpt2_raven.gpt2.h[i], target_name=f"blocks.{i}", record_raw=True)
 
-train_loader = DataLoader(train_dataset, batch_size=1024, shuffle=False, drop_last=False)
-test_loader = DataLoader(test_dataset, batch_size=1024, shuffle=False)
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, drop_last=False)
+test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 # extract features
 t_beg = time.time()
 feature_col = extract_features_GPT(gpt2_raven, fetcher, train_loader, cond=False) # 4mins
@@ -130,6 +183,13 @@ for dimred_str in args.dim_red_method:
     plt.title(f"Accuracy\n{expname}\n{ckpt_str} {dimred_str}")
     saveallforms([repr_expdir,],f"{dimred_str}_{ckpt_str}_accuracy.png")
     plt.show()
+    for layer in results_col:
+        pred_cls = results_col[layer]['pred_cls'].cpu()
+        cm = confusion_matrix(y_test, pred_cls)
+        fig1, fig2 = visualize_cm(cm, heldout_rules=heldout_ids, titlestr=f"{layer} Avg token repr step{train_step}\n{expname}")
+        saveallforms(figexpdir, f"acc_per_rule_{layer}_{dimred_str}_{ckpt_str}", fig1)
+        saveallforms(figexpdir, f"rule_confmat_{layer}_{dimred_str}_{ckpt_str}", fig2)
+    plt.close('all')
 del feature_col
 del feature_col_test
 del PC_proj_col
@@ -152,16 +212,3 @@ del PC_proj_col
 #                           learning_rate=0.005, print_every=500, eval_every=500, )
 
 # th.cuda.empty_cache()
-
-# %% [markdown]
-# ### Error dissection
-
-# %%
-from stats_plot_utils import visualize_cm
-from sklearn.metrics import confusion_matrix
-
-# %%
-for layername in results_col:
-    pred_cls = results_col[layername]['pred_cls'].cpu()
-    cm = confusion_matrix(y_test, pred_cls)
-    visualize_cm(cm, heldout_rules=heldout_ids, titlestr=f"{layername} Avg token repr step{train_step}\n{expname}")
