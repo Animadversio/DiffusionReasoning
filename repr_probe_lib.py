@@ -301,6 +301,53 @@ def extract_features_DiT(
     return feature_col
 
 
+def extract_features_GPT(
+    model,
+    fetcher,
+    data_loader,
+    device='cuda',
+    cond = False,
+    progress_bar=True
+):
+    """
+    Extracts features from specified layers of the model for the given dataset.
+    Note, for GPT, some module output is tuple, so we need to take the first element. (e.g. GPT2Block) this is not thorougly tested. !! 
+
+    Args:
+        model (torch.nn.Module): The neural network model.
+        fetcher (FeatureFetcher): An instance of the featureFetcher_module.
+        cond (bool, optional): Whether to condition on the labels. Defaults to False.
+        data_loader (DataLoader): DataLoader for the dataset.
+        device (str, optional): Device to perform computations on. Defaults to 'cuda'.
+        progress_bar (bool, optional): Whether to display a progress bar. Defaults to True.
+
+    Returns:
+        dict: A dictionary with layer keys and concatenated activation tensors.
+    """
+    feature_col = defaultdict(list)
+    loader = tqdm(data_loader) if progress_bar else data_loader
+    for X_batch, y_batch in loader:
+        # Prepare model inputs
+        if cond:
+            model_kwargs = {'y': y_batch.to(device)}
+        else:
+            model_kwargs = {'y': th.zeros(X_batch.size(0), dtype=th.long, device=device)}
+        # Forward pass with no gradient computation
+        with th.no_grad():
+            model.forward(X_batch.to(device), **model_kwargs)
+        # Collect activations
+        for key, activations in fetcher.activations.items():
+            # for GPT2Block, the output is a tuple of length 2, the first is the hidden state, the second is sth. else like attentions.
+            if isinstance(activations, list) or isinstance(activations, tuple):
+                activations = activations[0].detach().cpu()
+            feature_col[key].append(activations)
+
+    # Concatenate all activations for each layer
+    for key in feature_col:
+        feature_col[key] = th.cat(feature_col[key], dim=0)
+        print(f"{key}: {feature_col[key].shape}")
+    return feature_col
+
 
 def train_dimred_sgd_classifiers(
     feature_col,
