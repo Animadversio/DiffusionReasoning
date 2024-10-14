@@ -117,15 +117,15 @@ def extract_attr_panel_mat_set(sample_tsr, attr_id, outtype=set):
     return sample_panels, sample_panel_set
 
 
-def extract_training_set_row_panel_sets(train_tsr_X, return_set=True):
-    train_tsr_X_samples, train_X_sample_set = extract_sample_mat_set(train_tsr_X)
-    train_tsr_X_rows, train_X_row_set = extract_row_mat_set(train_tsr_X)
-    train_tsr_X_panels, train_X_panel_set = extract_panel_mat_set(train_tsr_X)
+def extract_training_set_row_panel_sets(train_tsr_X, return_set=True, outtype=set):
+    train_tsr_X_samples, train_X_sample_set = extract_sample_mat_set(train_tsr_X, outtype=outtype)
+    train_tsr_X_rows, train_X_row_set = extract_row_mat_set(train_tsr_X, outtype=outtype)
+    train_tsr_X_panels, train_X_panel_set = extract_panel_mat_set(train_tsr_X, outtype=outtype)
     train_X_row_set_attr_col = {}
     train_X_panel_set_attr_col = {}
     for attr_id in range(3):
-        train_tsr_X_rows_attr, train_X_row_set_attr = extract_attr_row_mat_set(train_tsr_X, attr_id)
-        train_tsr_X_panels_attr, train_X_panel_set_attr = extract_attr_panel_mat_set(train_tsr_X, attr_id)
+        train_tsr_X_rows_attr, train_X_row_set_attr = extract_attr_row_mat_set(train_tsr_X, attr_id, outtype=outtype)
+        train_tsr_X_panels_attr, train_X_panel_set_attr = extract_attr_panel_mat_set(train_tsr_X, attr_id, outtype=outtype)
         train_X_row_set_attr_col[attr_id] = train_X_row_set_attr
         train_X_panel_set_attr_col[attr_id] = train_X_panel_set_attr
     if return_set:
@@ -217,7 +217,8 @@ def visualize_memorization_dynamics(mem_stats_df, expname=''):
     return figh
 
 
-def visualize_memorization_with_ctrl_dynamics(mem_stats_df, mem_stats_ctrl_df, expname=''):
+def visualize_memorization_with_ctrl_dynamics(mem_stats_df, mem_stats_ctrl_df, expname='',
+                                              refdict=None):
     figh, axs = plt.subplots(1, 2, figsize=(10, 6))
     plt.sca(axs[0])
     sns.lineplot(data=mem_stats_df, x="epoch", y="mem_rowfrac", label="full row")   
@@ -230,6 +231,12 @@ def visualize_memorization_with_ctrl_dynamics(mem_stats_df, mem_stats_ctrl_df, e
     sns.lineplot(data=mem_stats_ctrl_df, x="epoch", y="mem_attr1_rowfrac", label="row attr1 (ctrl)", linestyle=':', color="C2")
     sns.lineplot(data=mem_stats_ctrl_df, x="epoch", y="mem_attr2_rowfrac", label="row attr2 (ctrl)", linestyle=':', color="C3")
     sns.lineplot(data=mem_stats_ctrl_df, x="epoch", y="mem_samplefrac", label="ctrl sample (ctrl)", linestyle=':', color="C4")
+    if refdict is not None:
+        plt.axhline(y=refdict["mem_rowfrac"], color='C0', alpha=0.5, linestyle='--', label="row ref")
+        plt.axhline(y=refdict["mem_attr0_rowfrac"], color='C1', alpha=0.5, linestyle='--', label="row attr0 ref")
+        plt.axhline(y=refdict["mem_attr1_rowfrac"], color='C2', alpha=0.5, linestyle='--', label="row attr1 ref")
+        plt.axhline(y=refdict["mem_attr2_rowfrac"], color='C3', alpha=0.5, linestyle='--', label="row attr2 ref")
+        plt.axhline(y=refdict["mem_samplefrac"], color='C4', alpha=0.5, linestyle='--', label="sample ref")
     plt.title("Row memorization fraction")
     plt.ylabel("row fraction")
     plt.xlabel("step")
@@ -243,6 +250,11 @@ def visualize_memorization_with_ctrl_dynamics(mem_stats_df, mem_stats_ctrl_df, e
     sns.lineplot(data=mem_stats_ctrl_df, x="epoch", y="mem_attr0_panfrac", label="panel attr0 (ctrl)", linestyle=':', color="C1")
     sns.lineplot(data=mem_stats_ctrl_df, x="epoch", y="mem_attr1_panfrac", label="panel attr1 (ctrl)", linestyle=':', color="C2")
     sns.lineplot(data=mem_stats_ctrl_df, x="epoch", y="mem_attr2_panfrac", label="panel attr2 (ctrl)", linestyle=':', color="C3")
+    if refdict is not None:
+        plt.axhline(y=refdict["mem_panfrac"], color='C0', alpha=0.5, linestyle='--', label="panel ref")
+        plt.axhline(y=refdict["mem_attr0_panfrac"], color='C1', alpha=0.5, linestyle='--', label="panel attr0 ref")
+        plt.axhline(y=refdict["mem_attr1_panfrac"], color='C2', alpha=0.5, linestyle='--', label="panel attr1 ref")
+        plt.axhline(y=refdict["mem_attr2_panfrac"], color='C3', alpha=0.5, linestyle='--', label="panel attr2 ref")
     plt.title("Panel memorization fraction")
     plt.ylabel("panel fraction")
     plt.xlabel("step")
