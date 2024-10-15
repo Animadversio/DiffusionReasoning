@@ -373,7 +373,7 @@ def train_dimred_sgd_classifiers(
         feature_red_col_test = {k: v[:, -1] for k, v in feature_col_test.items()}
         noPCA = True
         PC_dim = None
-    if dimred_str == "avgspace":
+    elif dimred_str == "avgspace":
         feature_red_col = {k: v.mean(dim=(2,3)) for k, v in feature_col.items()}
         feature_red_col_test = {k: v.mean(dim=(2,3)) for k, v in feature_col_test.items()}
         noPCA = True
