@@ -87,19 +87,19 @@ parser.add_argument(
 # Evaluation parameters
 parser.add_argument(
     "--layers",
-    type=int, default=[0, 5, 11, 17, 23], nargs="+", 
+    type=int, default=[23], nargs="+",  # 0, 5, 11, 17, 
     help="The layers of the GPT-2 model to evaluate."
 )
 parser.add_argument(
     "--dim_red_method", 
-    type=validate_dim_red, default=["avgtoken", "lasttoken"], nargs="+",
+    type=validate_dim_red, default=["avgtoken", "lasttoken", 'pca384'], nargs="+",
     help="The dimensionality reduction method(s) to apply to the features. Options: 'pca512', 'pca256', 'none', 'avgtoken', 'lasttoken'."
 )
-parser.add_argument(
-    "--figdir",
-    type=str, default="Figures_newrule",
-    help="The directory to save the output figures."
-)
+# parser.add_argument(
+#     "--figdir",
+#     type=str, default="Figures_newrule",
+#     help="The directory to save the output figures."
+# )
 # Training parameters
 parser.add_argument(
     "--batch_size",
@@ -113,7 +113,7 @@ expname = args.expname
 train_step = args.train_step
 layers = args.layers
 dim_red_method = args.dim_red_method
-figdir = args.figdir
+# figdir = args.figdir
 batch_size = args.batch_size
 
 # ### Load the training and test datasets
