@@ -13,10 +13,6 @@ import torch.nn.functional as F
 import numpy as np
 import einops
 import json
-# Import necessary libraries
-from transformers import GPT2Model, GPT2LMHeadModel, GPT2Tokenizer, GPT2Config
-from transformers import TextDataset, DataCollatorForLanguageModeling
-from transformers import Trainer, TrainingArguments
 from tqdm import tqdm, trange
 # from torch.optim import AdamW
 from torch.utils.tensorboard import SummaryWriter
