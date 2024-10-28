@@ -3,8 +3,8 @@
 cd /n/home12/binxuwang/Github/DiffusionReasoning
 exproot="/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/GPT2_raven"
 # figdir="/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/Figures/DiffusionReasoning/repr_rule_classify_SiT"
-for expname in "${exproot}"/GPT2_medium_RAVEN_uncond_heldout0_stream0_016M-20240820-02473*; do
-# GPT2_medium_RAVEN_uncond_heldout0_stream0_16M-20240820-024*; do
+for expname in "${exproot}"/GPT2_medium_RAVEN_uncond_heldout0_stream0_16M-20240820-024*; do
+# GPT2_medium_RAVEN_uncond_heldout0_stream0_016M-20240820-02473*; do
     echo $expname
 # 
     train_steps=(-1 999999 24999 49999 99999 199999 499999 699999 899999)

@@ -17,13 +17,45 @@ from tqdm import tqdm, trange
 # from torch.optim import AdamW
 from torch.utils.tensorboard import SummaryWriter
 from transformers import get_linear_schedule_with_warmup, AdamW
+from mamba_ssm import MambaLMHeadModel, Mamba
+from mamba_ssm.models.config_mamba import MambaConfig
 from GPT_models.GPT_RAVEN_model_lib import completion_eval, sample_next_token, \
-    multi_attr_loss_vec, MultiIdxGPT2Model
+    multi_attr_loss_vec, MultiIdxmambaModel
+from GPT_models.GPT_RAVEN_model_lib import SepWordEmbed, CmbWordEmbed, SepLMhead, CmbLMhead
 from GPT_models.GPT_RAVEN_model_lib import seqtsr2imgtsr, seqtsr2attrtsr, compute_rule_statistics
 from rule_new_utils import check_r3_r2_batch, infer_rule_from_sample_batch
 from torch.utils.data import TensorDataset, DataLoader
 import argparse
 
+class MultiIdxMambaModel(nn.Module):
+    def __init__(self, attribute_dims=(7,10,10), vocab_size=0, n_embd=768, n_class=0, is_sep_embed=True, **kwargs):
+        super().__init__()
+        # Combine embeddings
+        combined_embedding_size = n_embd  # Adjust based on your combination strategy
+        if is_sep_embed:
+            self.sep_word_embed = SepWordEmbed(attribute_dims, embed_size=n_embd//3)
+            self.multi_lmhead = SepLMhead(attribute_dims, embed_size=n_embd//3)
+        else:
+            self.sep_word_embed = CmbWordEmbed(attribute_dims, embed_size=n_embd)
+            self.multi_lmhead = CmbLMhead(attribute_dims, embed_size=n_embd)
+        config = MambaConfig(vocab_size=vocab_size, d_model=n_embd, **kwargs, 
+                  ssm_cfg={"layer": "Mamba1"})
+        self.mamba = MambaLMHeadModel(config, device='cuda')
+        self.mamba.backbone.embedding = nn.Identity()
+        self.mamba.lm_head = nn.Identity()
+        self.context_embed = nn.Embedding(1+n_class, n_embd)
+
+    def forward(self, input_ids, y=None):
+        # input_ids is expected to be a list of three tensors [attr1, attr2, attr3]
+        if y is None:
+            y = torch.zeros(input_ids.shape[0], dtype=th.long).to(input_ids[0].device)
+        ctx_vec = self.context_embed(y)
+        combined_embedding = self.sep_word_embed(input_ids)
+        combined_embedding = torch.concat([ctx_vec[:,None,:], combined_embedding, ], dim=1)
+        outputs = self.mamba(combined_embedding) # this is actually hidden states not logits
+        logits_attr1, logits_attr2, logits_attr3 = self.multi_lmhead(outputs.logits)
+        return outputs, logits_attr1, logits_attr2, logits_attr3
+    
 # %%
 # Initialize the GPT-2 model and tokenizer
 def preprocess_ids(attr_seq_tsr, ):
@@ -42,7 +74,6 @@ def main(args):
     
     n_embd = args.n_embd 
     n_layer = args.n_layer 
-    n_head = args.n_head 
     if args.embedding_type == 'sep':
         is_sep_embed = True
     elif args.embedding_type == 'cmb':
@@ -103,7 +134,7 @@ def main(args):
     # attr_seq_tsr_val = preprocess_ids(attr_seq_tsr_val)
     # del attr_img_tsr, attr_img_tsr_train, attr_img_tsr_val
     #%%
-    saveroot = "/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/GPT2_raven"
+    saveroot = "/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/Mamba_raven"
     expdir = join(saveroot, f"{explabel}-{time.strftime('%Y%m%d-%H%M%S')}")
     ckptdir = join(expdir, "ckpt")
     sampledir = join(expdir, "samples")
@@ -121,7 +152,7 @@ def main(args):
     config = {"batch_size": batch_size, "epoch_total": epoch_total, #"save_ckpt_every": save_ckpt_every,
             "save_ckpt_every_step": save_ckpt_every_step, "eval_model_every_step": eval_model_every_step, 
             "lr": lr, "num_warmup_steps": num_warmup_steps,
-            "n_embd": n_embd, "n_class": n_class, "n_layer": n_layer, "n_head": n_head,
+            "n_embd": n_embd, "n_class": n_class, "n_layer": n_layer, 
             "is_sep_embed": is_sep_embed,
             "heldout_id": heldout_id, 
             "train_sample_num": len(attr_seq_tsr_train), 
@@ -131,17 +162,17 @@ def main(args):
     json.dump(config, open(join(expdir, "config.json"), 'w'))
     #%%
     # bug fix @2024-06-28, before which, the "n_embd": n_embd, "n_class": n_class, "n_layer": n_layer, "n_head": n_head, are no effect
-    gpt2_raven = MultiIdxGPT2Model(attribute_dims=(7,10,10), vocab_size=27, max_length=83, 
-                                n_class=n_class, n_embd=n_embd, n_layer=n_layer, n_head=n_head, is_sep_embed=is_sep_embed)
+    mamba_raven = MultiIdxMambaModel(attribute_dims=(7,10,10), vocab_size=27, max_length=83, 
+                                n_class=n_class, n_embd=n_embd, n_layer=n_layer, is_sep_embed=is_sep_embed)
     # train loop
 
     # bug fix @2024-08-18, before which, the num_training_steps is not the total_steps, so wrong scheduler 
     # num_training_steps = len(data_loader) * epoch_total
-    optimizer = AdamW(gpt2_raven.parameters(), lr=lr)
+    optimizer = AdamW(mamba_raven.parameters(), lr=lr)
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=total_steps)
     
-    gpt2_raven.train().to('cuda')
-    th.save(gpt2_raven.state_dict(), join(ckptdir, 'gpt2_init.pth'))
+    mamba_raven.train().to('cuda')
+    th.save(mamba_raven.state_dict(), join(ckptdir, 'mamba_init.pth'))
     global_step = 0
     train_loss_sum = []
     pbar = trange(total_steps)
@@ -156,10 +187,10 @@ def main(args):
         ys = ys.cuda()
         optimizer.zero_grad()
         if is_class_cond:
-            outputs, logits_attr1, logits_attr2, logits_attr3 = gpt2_raven(inputs, y=ys)
+            outputs, logits_attr1, logits_attr2, logits_attr3 = mamba_raven(inputs, y=ys)
         else:
-            outputs, logits_attr1, logits_attr2, logits_attr3 = gpt2_raven(inputs, y=None)
-        # note the inputs were pre-pended in gpt2 to add context
+            outputs, logits_attr1, logits_attr2, logits_attr3 = mamba_raven(inputs, y=None)
+        # note the inputs were pre-pended in mamba to add context
         loss = multi_attr_loss_vec([logits_attr1[:,:-1], logits_attr2[:,:-1], logits_attr3[:,:-1]], inputs)
         # loss = next_token_loss((attr_seq_tsr_1, attr_seq_tsr_2, attr_seq_tsr_3), inputs)
         loss.backward()
@@ -174,7 +205,7 @@ def main(args):
         if (global_step + 1) % eval_model_every_step == 0 or \
            (global_step == 0) or \
            (global_step + 1 == total_steps):
-            gpt2_raven.eval()
+            mamba_raven.eval()
             pbar = tqdm(val_loader)
             val_loss_sum = []
             for (inputs, ys) in pbar:
@@ -182,9 +213,9 @@ def main(args):
                 ys = ys.cuda()
                 with torch.no_grad():
                     if is_class_cond:
-                        outputs, logits_attr1, logits_attr2, logits_attr3 = gpt2_raven(inputs, y=ys)
+                        outputs, logits_attr1, logits_attr2, logits_attr3 = mamba_raven(inputs, y=ys)
                     else:
-                        outputs, logits_attr1, logits_attr2, logits_attr3 = gpt2_raven(inputs, y=None)
+                        outputs, logits_attr1, logits_attr2, logits_attr3 = mamba_raven(inputs, y=None)
                     loss = multi_attr_loss_vec([logits_attr1[:,:-1], logits_attr2[:,:-1], logits_attr3[:,:-1]], inputs)
                 # loss = next_token_loss((attr_seq_tsr_1, attr_seq_tsr_2, attr_seq_tsr_3), inputs)
                 pbar.set_description(f'Loss: {loss.item()}')
@@ -194,13 +225,13 @@ def main(args):
             # evaluatate on the completion of validation set
             # rnd_idx = np.random.choice(len(attr_seq_tsr_val), 512)
             eval_samples = attr_seq_tsr_val_eval[:,:,:]
-            eval_complete, C3_list, C2_list, rule_col_list, stats = completion_eval(eval_samples, gpt2_raven, num_mask=9, batch_size=256, 
+            eval_complete, C3_list, C2_list, rule_col_list, stats = completion_eval(eval_samples, mamba_raven, num_mask=9, batch_size=256, 
                                                                                 device='cuda', strategy="greedy", return_stats=True,
                                                                                 cond=y_rule_val_eval.cuda() if is_class_cond else None)
             # evaluation by ab initio generation of samples
             y_rule_abinit = th.arange(40).repeat_interleave(50)
             eval_samples_empty = th.zeros(len(y_rule_abinit), 81, 3, dtype=th.long).to('cuda')
-            eval_complete_abinit, C3_list_abinit, C2_list_abinit, rule_col_list_abinit, stats_abinit = completion_eval(eval_samples_empty, gpt2_raven, num_mask=81, batch_size=256, 
+            eval_complete_abinit, C3_list_abinit, C2_list_abinit, rule_col_list_abinit, stats_abinit = completion_eval(eval_samples_empty, mamba_raven, num_mask=81, batch_size=256, 
                                                         device='cuda', strategy="sample", temperature=eval_temperature, return_stats=True,
                                                         cond=y_rule_abinit.cuda() if is_class_cond else None)
             th.save({"eval_complete": eval_complete, "C3_list": C3_list, "C2_list": C2_list, "rule_col_list": rule_col_list, "stats": stats,
@@ -212,24 +243,24 @@ def main(args):
             writer.add_scalar('Val/C3_abinit', stats_abinit['C3'] / stats_abinit['total'], global_step)
             writer.add_scalar('Val/C2_abinit', stats_abinit['C2'] / stats_abinit['total'], global_step)
             writer.add_scalar('Val/AnyValid_abinit', stats_abinit['anyvalid'] / stats_abinit['total'] / 3, global_step)
-            gpt2_raven.train()
+            mamba_raven.train()
             
         if (global_step + 1) % save_ckpt_every_step == 0:
-            th.save(gpt2_raven.state_dict(), join(ckptdir, f'gpt2_step{global_step}.pth'))
+            th.save(mamba_raven.state_dict(), join(ckptdir, f'mamba_step{global_step}.pth'))
         global_step += 1
 
     train_loss_avg = np.mean(train_loss_sum)
     writer.add_scalar('Train/Avg_Loss', train_loss_avg, global_step)
 
-    th.save(gpt2_raven.state_dict(), join(ckptdir, 'gpt2_final.pth'))
+    th.save(mamba_raven.state_dict(), join(ckptdir, 'mamba_final.pth'))
     # Close the TensorBoard writer
     writer.close()
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='GPT Model Training for RPM')
+    parser = argparse.ArgumentParser(description='Mamba Model Training for RPM')
     # parser.add_argument('--data_path', type=str, required=True, help='Path to the attribute data file')
-    parser.add_argument('--explabel', type=str, default="GPT2_medium_RAVEN_uncond_heldout0_stream16M", help='Experiment label')
+    parser.add_argument('--explabel', type=str, default="Mamba_medium_RAVEN_uncond_heldout0_stream16M", help='Experiment label')
     parser.add_argument('--heldout_ids', nargs='+', type=int, help='Indices of data to hold out during training', default=[1, 16, 20, 34, 37])
     parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training')
     parser.add_argument('--total_steps', type=int, default=250000, help='Total steps of training')
@@ -242,7 +273,7 @@ if __name__ == "__main__":
     parser.add_argument('--eval_model_every_step', type=int, default=2500, help='Steps interval to evaluate the model')
     parser.add_argument('--n_embd', type=int, default=768, help='Embedding size')
     parser.add_argument('--n_layer', type=int, default=24, help='Number of layers')
-    parser.add_argument('--n_head', type=int, default=12, help='Number of attention heads')
+    # parser.add_argument('--n_head', type=int, default=12, help='Number of attention heads')
     parser.add_argument('--n_class', type=int, default=0, help='Number of classes')
     parser.add_argument('--embedding_type', type=str, default='sep', help='Type of embedding', choices=['sep', 'cmb'])
 
@@ -251,49 +282,30 @@ if __name__ == "__main__":
 
 
 #%%
+
 # batch_size = 64
-# # epoch_total = 1
-# # save_ckpt_every = 5
-# save_ckpt_every_step = 12500
-# eval_model_every_step = 2500
-# total_steps = 250000
-# # explabel = "GPT2_base_RAVEN_cond_heldout0"
+# epoch_total = 100
+# save_ckpt_every = 5
+# # explabel = "Mamba_base_RAVEN_uncond_heldout0"
 # # n_embd = 768
 # # n_layer = 12
-# # n_head = 12
 # # is_sep_embed = True
-# # explabel = "GPT2_medium_RAVEN_cond_heldout0"
-# # explabel = "GPT2_medium_RAVEN_cond_all"
+# # explabel = "mamba_medium_RAVEN_uncond_heldout0"
+# # explabel = "mamba_medium_RAVEN_uncond_all"
 # # n_embd = 768
 # # n_layer = 24
-# # n_head = 12
 # # is_sep_embed = True
-# # n_class = 40
-# # explabel = "GPT2_medium_RAVEN_uncond_all_stream16M"
-# # n_embd = 768
-# # n_layer = 24
-# # n_head = 12
+# # explabel = "mamba_big_RAVEN_uncond_heldout0"
+# # explabel = "mamba_big_RAVEN_uncond_all"
+# # n_embd = 1152
+# # n_layer = 36
 # # is_sep_embed = True
-# # n_class = 0
-# # explabel = "GPT2_medium_RAVEN_cond_all_stream16M"
-# # n_embd = 768
-# # n_layer = 24
-# # n_head = 12
-# # is_sep_embed = True
-# # n_class = 40
-# explabel = "GPT2_medium_RAVEN_uncond_heldout0_stream16M"
-# n_embd = 768
-# n_layer = 24
-# n_head = 12
+# # explabel = "mamba_huge_RAVEN_uncond_heldout0"
+# explabel = "mamba_huge_RAVEN_uncond_all"
+# n_embd = 1536
+# n_layer = 48
 # is_sep_embed = True
 # n_class = 0
-# # explabel = "GPT2CmbEmb_base_RAVEN_cond_heldout0"
-# # n_embd = 768
-# # n_layer = 12
-# # n_head = 12
-# # is_sep_embed = False
-# # n_class = 40
 # lr = 1e-4
 # num_warmup_steps = 100
 # eval_temperature = 1.0
-
