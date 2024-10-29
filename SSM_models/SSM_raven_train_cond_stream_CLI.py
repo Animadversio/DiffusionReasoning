@@ -20,7 +20,7 @@ from transformers import get_linear_schedule_with_warmup, AdamW
 from mamba_ssm import MambaLMHeadModel, Mamba
 from mamba_ssm.models.config_mamba import MambaConfig
 from GPT_models.GPT_RAVEN_model_lib import completion_eval, sample_next_token, \
-    multi_attr_loss_vec, MultiIdxmambaModel
+    multi_attr_loss_vec
 from GPT_models.GPT_RAVEN_model_lib import SepWordEmbed, CmbWordEmbed, SepLMhead, CmbLMhead
 from GPT_models.GPT_RAVEN_model_lib import seqtsr2imgtsr, seqtsr2attrtsr, compute_rule_statistics
 from rule_new_utils import check_r3_r2_batch, infer_rule_from_sample_batch
@@ -162,7 +162,7 @@ def main(args):
     json.dump(config, open(join(expdir, "config.json"), 'w'))
     #%%
     # bug fix @2024-06-28, before which, the "n_embd": n_embd, "n_class": n_class, "n_layer": n_layer, "n_head": n_head, are no effect
-    mamba_raven = MultiIdxMambaModel(attribute_dims=(7,10,10), vocab_size=27, max_length=83, 
+    mamba_raven = MultiIdxMambaModel(attribute_dims=(7,10,10), vocab_size=27, # max_length=83, 
                                 n_class=n_class, n_embd=n_embd, n_layer=n_layer, is_sep_embed=is_sep_embed)
     # train loop
 
