@@ -247,6 +247,13 @@ def main(args):
             
         if (global_step + 1) % save_ckpt_every_step == 0:
             th.save(mamba_raven.state_dict(), join(ckptdir, f'mamba_step{global_step}.pth'))
+            checkpoint = {
+                'optimizer_state_dict': optimizer.state_dict(),
+                'scheduler_state_dict': scheduler.state_dict(),
+                'global_step': global_step
+            }
+            torch.save(checkpoint, join(ckptdir, f'mamba_optim_latest.pth')) 
+            # CAVEAT: the optimizer and scheduler are not saved in the checkpoint file, to save space only save the latest optimizer and scheduler states. 
         global_step += 1
 
     train_loss_avg = np.mean(train_loss_sum)
