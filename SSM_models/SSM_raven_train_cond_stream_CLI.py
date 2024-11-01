@@ -252,7 +252,7 @@ def main(args):
                 'scheduler_state_dict': scheduler.state_dict(),
                 'global_step': global_step
             }
-            torch.save(checkpoint, join(ckptdir, f'mamba_optim_latest.pth')) 
+            torch.save(checkpoint, join(ckptdir, f'mamba_optimizer_latest.pth')) 
             # CAVEAT: the optimizer and scheduler are not saved in the checkpoint file, to save space only save the latest optimizer and scheduler states. 
         global_step += 1
 
