@@ -174,6 +174,17 @@ def main(args):
     mamba_raven.train().to('cuda')
     th.save(mamba_raven.state_dict(), join(ckptdir, 'mamba_init.pth'))
     global_step = 0
+    if False and os.path.exists(join(ckptdir, 'mamba_optimizer_latest.pth')):
+        optimizer_ckpt_path = join(ckptdir, 'mamba_optimizer_latest.pth')
+        print(f"Loading checkpoint from {latest_checkpoint_path}")
+        checkpoint = torch.load(optimizer_ckpt_path)
+        # mamba_raven.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        global_step = checkpoint['global_step'] + 1  # Start from the next step
+        assert os.path.exists(join(ckptdir, f'mamba_step{checkpoint['global_step']}.pth'))
+        mamba_raven.load_state_dict(torch.load(join(ckptdir, f'mamba_step{checkpoint['global_step']}.pth')))
+
     train_loss_sum = []
     pbar = trange(total_steps)
     data_iter = iter(data_loader)
