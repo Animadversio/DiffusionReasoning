@@ -122,6 +122,47 @@ for expname in "${exproot}"/090-RAVEN10_abstract*; do
 done
 
 
+
+
+
+exproot="/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/DiT/results"
+figdir="/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/Figures/DiffusionReasoning/repr_rule_classify"
+# 45,46,47,48,49,50,51,52,53,54,55,56
+# Assuming the experiment names follow the format "XXX-RAVEN10_abstract*"
+# for expname in "${exproot}"/0{90}-RAVEN10_abstract*; do
+for expname in "${exproot}"/1{03..08}-RAVEN10_abstract*; do
+    echo $expname
+    epochs=(1000000)
+    # Loop over each epoch value
+    for epoch in "${epochs[@]}"; do
+        python DiT_repr_classifier_new_probe_CLI.py \
+            --expname "$(basename "$expname")" \
+            --epoch "$epoch" \
+            --t_scalars 0 10 25 50 100 1000 \
+            --dim_red_method avgtoken \
+            --layers 0 2 5 8 11 \
+            --figdir "$figdir"
+    #  # 0 2 5 8 11
+    done
+done
+
+for expname in "${exproot}"/1{03..08}-RAVEN10_abstract*; do
+    echo $expname
+    epochs=(-1 20000 100000 200000 500000 700000)
+    # Loop over each epoch value
+    for epoch in "${epochs[@]}"; do
+        python DiT_repr_classifier_new_probe_CLI.py \
+            --expname "$(basename "$expname")" \
+            --epoch "$epoch" \
+            --t_scalars 0 10 25 50 100 1000 \
+            --dim_red_method avgtoken \
+            --layers 11 \
+            --figdir "$figdir"
+    #  # 0 2 5 8 11
+    done
+done
+
+
     # python DiT_repr_classifier_new_probe_CLI.py --expname "$(basename "$expname")" --epoch -1 \
     #     --t_scalars 0 1 10 25 50 100 250 500 1000 --dim_red_method pca128 pca384 pca512 pca1024 avgtoken lasttoken \
     #     --layers 0 2 5 8 11 --figdir "$figdir"
