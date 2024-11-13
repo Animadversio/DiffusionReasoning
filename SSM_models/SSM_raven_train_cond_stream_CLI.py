@@ -181,9 +181,10 @@ def main(args):
         # mamba_raven.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-        global_step = checkpoint['global_step'] + 1  # Start from the next step
-        assert os.path.exists(join(ckptdir, f'mamba_step{checkpoint['global_step']}.pth'))
-        mamba_raven.load_state_dict(torch.load(join(ckptdir, f'mamba_step{checkpoint['global_step']}.pth')))
+        global_step = checkpoint['global_step']  # Start from the next step
+        assert os.path.exists(join(ckptdir, f"mamba_step{global_step}.pth"))
+        mamba_raven.load_state_dict(torch.load(join(ckptdir, f"mamba_step{global_step}.pth")))
+        global_step = global_step + 1
 
     train_loss_sum = []
     pbar = trange(total_steps)
