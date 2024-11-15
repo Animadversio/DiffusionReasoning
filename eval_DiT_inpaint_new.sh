@@ -110,26 +110,7 @@ for expname in "${exproot}"/090-RAVEN10_abstract*; do
 done
 
 
-    # python DiT_repr_classifier_new_probe_CLI.py --expname "$(basename "$expname")" --epoch -1 \
-    #     --t_scalars 0 1 10 25 50 100 250 500 1000 --dim_red_method pca128 pca384 pca512 pca1024 avgtoken lasttoken \
-    #     --layers 0 2 5 8 11 --figdir "$figdir"
 
-    
-
-    # python DiT_repr_classifier_new_probe_CLI.py --expname "$(basename "$expname")" --epoch -1 \
-    #     --t_scalars 0.1 --noPCA --figdir Figures_newrule
-    # python DiT_repr_classifier_new_probe_CLI.py --expname "$(basename "$expname")" --epoch 1000000 \
-    #     --t_scalars 0.1 --noPCA --figdir Figures_newrule
-    # python DiT_repr_classifier_new_probe_CLI.py --expname "$(basename "$expname")" --epoch 20000 \
-    #     --t_scalars 0.1 --noPCA --figdir Figures_newrule
-    # python DiT_repr_classifier_new_probe_CLI.py --expname "$(basename "$expname")" --epoch 100000 \
-    #     --t_scalars 0.1 --noPCA --figdir Figures_newrule
-    # python DiT_repr_classifier_new_probe_CLI.py --expname "$(basename "$expname")" --epoch 200000 \
-    #     --t_scalars 0.1 --noPCA --figdir Figures_newrule
-    # python DiT_repr_classifier_new_probe_CLI.py --expname "$(basename "$expname")" --epoch 500000 \
-    #     --t_scalars 0.1 --noPCA --figdir Figures_newrule
-    # python DiT_repr_classifier_new_probe_CLI.py.py --expname "$(basename "$expname")" --epoch 1000000 \
-    #     --t_scalars 0.1 --noPCA --figdir Figures_newrule
 
 for expname in "${exproot}"/{085..089,091..100}-RAVEN10_abstract*; do
 # for expnum in {085..100}; do
