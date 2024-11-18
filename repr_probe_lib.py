@@ -260,6 +260,7 @@ def extract_features_DiT(
     dataset_Xmean,
     dataset_Xstd,
     t_scalar,
+    feature_reducer=None,
     device='cuda',
     progress_bar=True
 ):
@@ -292,7 +293,10 @@ def extract_features_DiT(
             model.forward(X_batch_norm, t_vec, **model_kwargs)
         # Collect activations
         for key, activations in fetcher.activations.items():
-            feature_col[key].append(activations.cpu())
+            if feature_reducer is not None:
+                activations = feature_reducer(activations)
+                
+            feature_col[key].append(activations.detach().cpu())
 
     # Concatenate all activations for each layer
     for key in feature_col:
