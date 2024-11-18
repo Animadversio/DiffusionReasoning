@@ -128,7 +128,7 @@ expnames = [
 # %%
 batch_size = 10240
 RND_SEED = 43
-for expname in expnames[3:6]:
+for expname in expnames:
     model_DiT = load_DiT_model(expname, 1000000, use_ema=True, 
                                cfg="DiT_S_1" if "DiT_S_1" in expname else "DiT_B_1")
     noise = th.randn(batch_size, 3, 9, 9, device="cuda", generator=th.Generator(device="cuda").manual_seed(RND_SEED))
