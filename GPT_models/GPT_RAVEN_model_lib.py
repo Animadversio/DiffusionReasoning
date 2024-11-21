@@ -196,10 +196,10 @@ class JointIdxGPT2Model(nn.Module):
         combined_embedding_size = n_embd  # Adjust based on your combination strategy
         self.embed_type = embed_type
         if embed_type == "sep":
-            self.sep_word_embed = SepWordEmbed(attribute_dims, embed_size=n_embd//3)
+            self.joint_word_embed = SepWordEmbed(attribute_dims, embed_size=n_embd//3)
             # self.multi_lmhead = SepLMhead(attribute_dims, embed_size=n_embd//3)
         elif embed_type == "cmb":
-            self.sep_word_embed = CmbWordEmbed(attribute_dims, embed_size=n_embd)
+            self.joint_word_embed = CmbWordEmbed(attribute_dims, embed_size=n_embd)
             # self.multi_lmhead = CmbLMhead(attribute_dims, embed_size=n_embd)
         elif embed_type == "joint":
             self.joint_word_embed = JointWordEmbed(attribute_dims, embed_size=n_embd)
@@ -215,7 +215,7 @@ class JointIdxGPT2Model(nn.Module):
         if y is None:
             y = torch.zeros(input_ids.shape[0], dtype=th.long).to(input_ids[0].device)
         ctx_vec = self.context_embed(y)
-        combined_embedding = self.sep_word_embed(input_ids)
+        combined_embedding = self.joint_word_embed(input_ids)
         combined_embedding = torch.concat([ctx_vec[:,None,:], combined_embedding, ], dim=1)
         outputs = self.gpt2(inputs_embeds=combined_embedding)
         logits_joint = self.joint_lmhead(outputs.last_hidden_state)
@@ -282,7 +282,7 @@ def sample_next_token(model, prefix_inputs, max_length=81, strategy="greedy", de
             else:
                 raise ValueError("Invalid strategy")
             next_token = decode_joint_idx2attr_idx(next_token_joint_idx)
-            next_token = torch.stack(next_token, dim=-1)
+            next_token = torch.cat(next_token, dim=-1)
         else:
             raise ValueError("Unsupported model type")
         prefix_inputs = torch.cat([prefix_inputs, next_token[:,None,:]], dim=1)

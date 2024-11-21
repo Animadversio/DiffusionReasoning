@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -t 50:00:00          # Runtime in D-HH:MM, minimum of 10 minutes
+#SBATCH -t 15:00:00          # Runtime in D-HH:MM, minimum of 10 minutes
 #SBATCH -p kempner_h100      # Partition to submit to
 #SBATCH -c 16               # Number of cores (-c)
 #SBATCH --mem=130G           # Memory pool for all cores (see also --mem-per-cpu)
@@ -11,12 +11,12 @@
 
 echo "$SLURM_ARRAY_TASK_ID"
 param_list=\
-'--explabel GPT2_small_joint_RAVEN_uncond_heldout0_stream0_16M  --heldout_ids 1 16 20 34 37 --embed_type joint --cmb_per_class 4000 --n_class 0 --n_embd 384 --n_layer 12 --n_head 6  --batch_size 64 --total_steps 1000000
---explabel GPT2_small_sep_RAVEN_uncond_heldout0_stream0_16M  --heldout_ids 1 16 20 34 37 --embed_type sep    --cmb_per_class 4000 --n_class 0 --n_embd 384 --n_layer 12 --n_head 6  --batch_size 64 --total_steps 1000000
---explabel GPT2_small_cmb_RAVEN_uncond_heldout0_stream0_16M  --heldout_ids 1 16 20 34 37 --embed_type cmb    --cmb_per_class 4000 --n_class 0 --n_embd 384 --n_layer 12 --n_head 6  --batch_size 64 --total_steps 1000000
---explabel GPT2_base_joint_RAVEN_uncond_heldout0_stream0_16M --heldout_ids 1 16 20 34 37 --embed_type joint --cmb_per_class 4000 --n_class 0 --n_embd 768 --n_layer 12 --n_head 12 --batch_size 64  --total_steps 1000000
---explabel GPT2_base_sep_RAVEN_uncond_heldout0_stream0_16M --heldout_ids 1 16 20 34 37 --embed_type sep   --cmb_per_class 4000 --n_class 0 --n_embd 768 --n_layer 12 --n_head 12 --batch_size 64  --total_steps 1000000
---explabel GPT2_base_cmb_RAVEN_uncond_heldout0_stream0_16M --heldout_ids 1 16 20 34 37 --embed_type cmb   --cmb_per_class 4000 --n_class 0 --n_embd 768 --n_layer 12 --n_head 12 --batch_size 64  --total_steps 1000000
+'--explabel GPT2_small_joint_lm_joint_emb_RAVEN_uncond_heldout0_stream0_16M  --heldout_ids 1 16 20 34 37 --embed_type joint --cmb_per_class 4000 --n_class 0 --n_embd 384 --n_layer 12 --n_head 6  --batch_size 64 --total_steps 1000000
+--explabel GPT2_small_joint_lm_sep_emb_RAVEN_uncond_heldout0_stream0_16M  --heldout_ids 1 16 20 34 37 --embed_type sep    --cmb_per_class 4000 --n_class 0 --n_embd 384 --n_layer 12 --n_head 6  --batch_size 64 --total_steps 1000000
+--explabel GPT2_small_joint_lm_cmb_emb_RAVEN_uncond_heldout0_stream0_16M  --heldout_ids 1 16 20 34 37 --embed_type cmb    --cmb_per_class 4000 --n_class 0 --n_embd 384 --n_layer 12 --n_head 6  --batch_size 64 --total_steps 1000000
+--explabel GPT2_base_joint_lm_joint_emb_RAVEN_uncond_heldout0_stream0_16M --heldout_ids 1 16 20 34 37 --embed_type joint --cmb_per_class 4000 --n_class 0 --n_embd 768 --n_layer 12 --n_head 12 --batch_size 64  --total_steps 1000000
+--explabel GPT2_base_joint_lm_sep_emb_RAVEN_uncond_heldout0_stream0_16M --heldout_ids 1 16 20 34 37 --embed_type sep   --cmb_per_class 4000 --n_class 0 --n_embd 768 --n_layer 12 --n_head 12 --batch_size 64  --total_steps 1000000
+--explabel GPT2_base_joint_lm_cmb_emb_RAVEN_uncond_heldout0_stream0_16M --heldout_ids 1 16 20 34 37 --embed_type cmb   --cmb_per_class 4000 --n_class 0 --n_embd 768 --n_layer 12 --n_head 12 --batch_size 64  --total_steps 1000000
 '
 # --explabel GPT2_medium_RAVEN_uncond_heldout0_stream0_16M --heldout_ids 1 16 20 34 37  --cmb_per_class 4000  --n_class 0 --n_embd 768 --n_layer 24 --n_head 12 --batch_size 256 --total_steps 1000000
 # --explabel GPT2_base_RAVEN_uncond_heldout0_stream0_16M   --heldout_ids 1 16 20 34 37  --cmb_per_class 4000  --n_class 0 --n_embd 768 --n_layer 12 --n_head 12 --batch_size 256 --total_steps 1000000
