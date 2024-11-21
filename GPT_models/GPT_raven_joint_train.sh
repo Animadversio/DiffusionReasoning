@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH -t 67:00:00          # Runtime in D-HH:MM, minimum of 10 minutes
+#SBATCH -t 35:00:00          # Runtime in D-HH:MM, minimum of 10 minutes
 #SBATCH -p kempner_h100      # Partition to submit to
 #SBATCH -c 16               # Number of cores (-c)
 #SBATCH --mem=130G           # Memory pool for all cores (see also --mem-per-cpu)
 #SBATCH --gres=gpu:1
-#SBATCH --array 7-9
+#SBATCH --array 10-12
 #SBATCH -o /n/home12/binxuwang/Github/DiffusionReasoning/cluster_log/GPT_RAVEN_joint_train_%A_%a.out  # File to which STDOUT will be written, %j inserts jobid
 #SBATCH -e /n/home12/binxuwang/Github/DiffusionReasoning/cluster_log/GPT_RAVEN_joint_train_%A_%a.err  # File to which STDERR will be written, %j inserts jobid
 #SBATCH --mail-user=binxu_wang@hms.harvard.edu
@@ -20,6 +20,9 @@ param_list=\
 --explabel GPT2_medium_joint_lm_joint_emb_RAVEN_uncond_heldout0_stream0_16M --heldout_ids 1 16 20 34 37 --embed_type joint --cmb_per_class 4000 --n_class 0 --n_embd 768 --n_layer 24 --n_head 12 --batch_size 64  --total_steps 1000000
 --explabel GPT2_medium_joint_lm_sep_emb_RAVEN_uncond_heldout0_stream0_16M --heldout_ids 1 16 20 34 37 --embed_type sep   --cmb_per_class 4000 --n_class 0 --n_embd 768 --n_layer 24 --n_head 12 --batch_size 64  --total_steps 1000000
 --explabel GPT2_medium_joint_lm_cmb_emb_RAVEN_uncond_heldout0_stream0_16M --heldout_ids 1 16 20 34 37 --embed_type cmb   --cmb_per_class 4000 --n_class 0 --n_embd 768 --n_layer 24 --n_head 12 --batch_size 64  --total_steps 1000000
+--explabel GPT2_base_joint_lm_sep_emb_RAVEN_uncond_heldout0_stream16M --heldout_ids 1 16 20 34 37 --embed_type sep   --cmb_per_class 400000 --n_class 0 --n_embd 768 --n_layer 12 --n_head 12 --batch_size 64  --total_steps 1000000
+--explabel GPT2_base_joint_lm_sep_emb_RAVEN_uncond_heldout0_stream1_6M --heldout_ids 1 16 20 34 37 --embed_type sep   --cmb_per_class 40000 --n_class 0 --n_embd 768 --n_layer 12 --n_head 12 --batch_size 64  --total_steps 1000000
+--explabel GPT2_base_joint_lm_sep_emb_RAVEN_uncond_heldout0_stream0_016M --heldout_ids 1 16 20 34 37 --embed_type sep   --cmb_per_class 400 --n_class 0 --n_embd 768 --n_layer 12 --n_head 12 --batch_size 64  --total_steps 1000000
 '
 # --explabel GPT2_medium_RAVEN_uncond_heldout0_stream0_16M --heldout_ids 1 16 20 34 37  --cmb_per_class 4000  --n_class 0 --n_embd 768 --n_layer 24 --n_head 12 --batch_size 256 --total_steps 1000000
 # --explabel GPT2_base_RAVEN_uncond_heldout0_stream0_16M   --heldout_ids 1 16 20 34 37  --cmb_per_class 4000  --n_class 0 --n_embd 768 --n_layer 12 --n_head 12 --batch_size 256 --total_steps 1000000
