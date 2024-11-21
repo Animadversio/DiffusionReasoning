@@ -151,6 +151,94 @@ def next_token_loss(outputs, targets, loss_fn=F.cross_entropy):
     loss3 = loss_fn(logits3[:, :-1, :].permute(0,2,1), targets[:, 1:, 2])
     return loss1 + loss2 + loss3
 
+
+class JointWordEmbed(nn.Module):
+    def __init__(self, embed_dims=(7,10,10), embed_size=768):
+        super(JointWordEmbed, self).__init__()
+        joint_token_size = (1 + embed_dims[0]) * (1 + embed_dims[1]) * (1 + embed_dims[2])
+        self.embedding = nn.Embedding(joint_token_size, embed_size)
+
+    def forward(self, attr_seq_tsr):
+        # split the attr_seq_tsr into three parts along the last dimension
+        # attr_seq_tsr_1, attr_seq_tsr_2, attr_seq_tsr_3 = torch.split(attr_seq_tsr, [1,1,1], dim=-1)
+        attr_seq_tsr_1, attr_seq_tsr_2, attr_seq_tsr_3 = attr_seq_tsr[...,0], attr_seq_tsr[...,1], attr_seq_tsr[...,2]
+        joint_idxs = encode_attr_idx2joint_idx([attr_seq_tsr_1, attr_seq_tsr_2, attr_seq_tsr_3])
+        attr_seq_embed = self.embedding(joint_idxs)
+        return attr_seq_embed
+
+
+class JointIdxGPT2Model(nn.Module):
+    def __init__(self, attribute_dims=(7,10,10), vocab_size=0, max_length=128, n_embd=768, n_class=0, embed_type="joint", **kwargs):
+        # config = GPT2Config(
+        #     vocab_size=27,
+        #     n_positions=128,
+        #     n_ctx=128,
+        #     n_embd=768,
+        #     n_layer=12,
+        #     n_head=12,
+        #     activation_function='gelu_new',
+        #     resid_pdrop=0.1,
+        #     embd_pdrop=0.1,
+        #     attn_pdrop=0.1,
+        #     layer_norm_epsilon=1e-5,
+        #     initializer_range=0.02,
+        #     summary_type='cls_index',
+        #     summary_use_proj=True,
+        #     summary_activation=None,
+        #     summary_proj_to_labels=True,
+        #     summary_first_dropout=0.1,
+        #     bos_token_id=50256,
+        #     eos_token_id=50256,
+        #     gradient_checkpointing=False,
+        # )
+        super().__init__()
+        # Combine embeddings
+        combined_embedding_size = n_embd  # Adjust based on your combination strategy
+        self.embed_type = embed_type
+        if embed_type == "sep":
+            self.sep_word_embed = SepWordEmbed(attribute_dims, embed_size=n_embd//3)
+            # self.multi_lmhead = SepLMhead(attribute_dims, embed_size=n_embd//3)
+        elif embed_type == "linear_cmb":
+            self.sep_word_embed = CmbWordEmbed(attribute_dims, embed_size=n_embd)
+            # self.multi_lmhead = CmbLMhead(attribute_dims, embed_size=n_embd)
+        elif embed_type == "joint":
+            self.joint_word_embed = JointWordEmbed(attribute_dims, embed_size=n_embd)
+            # self.multi_lmhead = CmbLMhead(attribute_dims, embed_size=n_embd)
+        self.joint_token_size = (1 + attribute_dims[0]) * (1 + attribute_dims[1]) * (1 + attribute_dims[2])
+        self.joint_lmhead = nn.Linear(n_embd, self.joint_token_size)
+        config = GPT2Config(vocab_size=vocab_size, n_positions=max_length, n_embd=combined_embedding_size, **kwargs)
+        self.gpt2 = GPT2Model(config)
+        self.context_embed = nn.Embedding(1+n_class, n_embd)
+
+    def forward(self, input_ids, y=None):
+        # input_ids is expected to be a list of three tensors [attr1, attr2, attr3]
+        if y is None:
+            y = torch.zeros(input_ids.shape[0], dtype=th.long).to(input_ids[0].device)
+        ctx_vec = self.context_embed(y)
+        combined_embedding = self.sep_word_embed(input_ids)
+        combined_embedding = torch.concat([ctx_vec[:,None,:], combined_embedding, ], dim=1)
+        outputs = self.gpt2(inputs_embeds=combined_embedding)
+        logits_joint = self.joint_lmhead(outputs.last_hidden_state)
+        return outputs, logits_joint
+
+
+def encode_attr_idx2joint_idx(attr_idxs, attribute_dims=(7,10,10)):
+    V1, V2, V3 = attribute_dims[0]+1, attribute_dims[1]+1, attribute_dims[2]+1
+    joint_idxs = attr_idxs[0] * V2 * V3 + \
+                 attr_idxs[1] * V3 + \
+                 attr_idxs[2]
+    #TODO: check the axis 
+    return joint_idxs
+
+
+def decode_joint_idx2attr_idx(joint_idxs, attribute_dims=(7,10,10)):
+    V1, V2, V3 = attribute_dims[0]+1, attribute_dims[1]+1, attribute_dims[2]+1
+    attr_idxs = (joint_idxs // (V2 * V3), 
+                 (joint_idxs // V3) % V2, 
+                 joint_idxs % V3)
+    return attr_idxs
+
+
 # %% [markdown]
 # ### Eval models
 @torch.no_grad()
@@ -159,18 +247,31 @@ def sample_next_token(model, prefix_inputs, max_length=81, strategy="greedy", de
     model.eval().to(device)
     prefix_length = prefix_inputs.size(1)
     for i in range(max_length - prefix_length):
-        outputs, logits1, logits2, logits3 = model(prefix_inputs, y=cond)
-        if strategy == "greedy":
-            next_token1 = torch.argmax(logits1[:, -1, :], dim=-1, keepdim=True)
-            next_token2 = torch.argmax(logits2[:, -1, :], dim=-1, keepdim=True)
-            next_token3 = torch.argmax(logits3[:, -1, :], dim=-1, keepdim=True)
-        elif strategy == "sample":
-            next_token1 = torch.multinomial(F.softmax(logits1[:, -1, :] / temperature, dim=-1), num_samples=1)
-            next_token2 = torch.multinomial(F.softmax(logits2[:, -1, :] / temperature, dim=-1), num_samples=1)
-            next_token3 = torch.multinomial(F.softmax(logits3[:, -1, :] / temperature, dim=-1), num_samples=1)
+        if isinstance(model, MultiIdxGPT2Model):
+            outputs, logits1, logits2, logits3 = model(prefix_inputs, y=cond)
+            if strategy == "greedy":
+                next_token1 = torch.argmax(logits1[:, -1, :], dim=-1, keepdim=True)
+                next_token2 = torch.argmax(logits2[:, -1, :], dim=-1, keepdim=True)
+                next_token3 = torch.argmax(logits3[:, -1, :], dim=-1, keepdim=True)
+            elif strategy == "sample":
+                next_token1 = torch.multinomial(F.softmax(logits1[:, -1, :] / temperature, dim=-1), num_samples=1)
+                next_token2 = torch.multinomial(F.softmax(logits2[:, -1, :] / temperature, dim=-1), num_samples=1)
+                next_token3 = torch.multinomial(F.softmax(logits3[:, -1, :] / temperature, dim=-1), num_samples=1)
+            else:
+                raise ValueError("Invalid strategy")
+            next_token = torch.cat([next_token1, next_token2, next_token3], dim=-1)
+        elif isinstance(model, JointIdxGPT2Model):
+            outputs, logits_joint = model(prefix_inputs, y=cond)
+            if strategy == "greedy":
+                next_token_joint_idx = torch.argmax(logits_joint[:, -1, :], dim=-1, keepdim=True)
+            elif strategy == "sample":
+                next_token_joint_idx = torch.multinomial(F.softmax(logits_joint[:, -1, :] / temperature, dim=-1), num_samples=1)
+            else:
+                raise ValueError("Invalid strategy")
+            next_token = decode_joint_idx2attr_idx(next_token_joint_idx)
+            next_token = torch.stack(next_token, dim=-1)
         else:
-            raise ValueError("Invalid strategy")
-        next_token = torch.cat([next_token1, next_token2, next_token3], dim=-1)
+            raise ValueError("Unsupported model type")
         prefix_inputs = torch.cat([prefix_inputs, next_token[:,None,:]], dim=1)
     return prefix_inputs
 # %%
