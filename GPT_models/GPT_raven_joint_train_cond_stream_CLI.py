@@ -22,7 +22,7 @@ from tqdm import tqdm, trange
 from torch.utils.tensorboard import SummaryWriter
 from transformers import get_linear_schedule_with_warmup, AdamW
 from GPT_models.GPT_RAVEN_model_lib import completion_eval, sample_next_token, \
-    multi_attr_loss_vec, MultiIdxGPT2Model, JointIdxGPT2Model, encode_attr_idx2joint_idx, decode_joint_idx2attr_idx
+    multi_attr_loss_vec, MultiIdxGPT2Model, JointIdxGPT2Model, encode_attr_idx2joint_idx, decode_joint_idx2attr_idx, joint_loss_vec
 from GPT_models.GPT_RAVEN_model_lib import seqtsr2imgtsr, seqtsr2attrtsr, compute_rule_statistics
 from rule_new_utils import check_r3_r2_batch, infer_rule_from_sample_batch
 from torch.utils.data import TensorDataset, DataLoader
@@ -98,12 +98,6 @@ def main(args):
     attr_seq_tsr_val_eval = einops.rearrange(attr_seq_tsr_val_eval, 'class B (R p h w) attr -> (class B) (R p h w) attr', R=3, p=3, h=3, w=3)
     print(attr_seq_tsr_train.shape, attr_seq_tsr_val.shape, attr_seq_tsr_val_eval.shape)
     del attr_seq_tsr
-    # attr_img_tsr_train, attr_img_tsr_val = attr_img_tsr[train_mask, :-500], attr_img_tsr[:, -500:] # changed June 30, 2024, also eval on untrained rules. 
-    # attr_seq_tsr_train = einops.rearrange(attr_img_tsr_train,  'class B attr (R h) (p w) -> (class B) (R p h w) attr', h=3,w=3,p=3,R=3)
-    # attr_seq_tsr_val = einops.rearrange(attr_img_tsr_val,  'class B attr (R h) (p w) -> (class B) (R p h w) attr', h=3,w=3,p=3,R=3)
-    # attr_seq_tsr_train = preprocess_ids(attr_seq_tsr_train)
-    # attr_seq_tsr_val = preprocess_ids(attr_seq_tsr_val)
-    # del attr_img_tsr, attr_img_tsr_train, attr_img_tsr_val
     #%%
     saveroot = "/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/GPT2_raven"
     expdir = join(saveroot, f"{explabel}-{time.strftime('%Y%m%d-%H%M%S')}")
@@ -135,6 +129,7 @@ def main(args):
     # bug fix @2024-06-28, before which, the "n_embd": n_embd, "n_class": n_class, "n_layer": n_layer, "n_head": n_head, are no effect
     gpt2_raven = JointIdxGPT2Model(attribute_dims=(7,10,10), vocab_size=27, max_length=83, 
                                 n_class=n_class, n_embd=n_embd, n_layer=n_layer, n_head=n_head, embed_type=embed_type)
+    print(f"Model config: {config}")
     # train loop
 
     # bug fix @2024-08-18, before which, the num_training_steps is not the total_steps, so wrong scheduler 
@@ -158,11 +153,12 @@ def main(args):
         ys = ys.cuda()
         optimizer.zero_grad()
         if is_class_cond:
-            outputs, logits_attr1, logits_attr2, logits_attr3 = gpt2_raven(inputs, y=ys)
+            outputs, logits_joint = gpt2_raven(inputs, y=ys)
         else:
-            outputs, logits_attr1, logits_attr2, logits_attr3 = gpt2_raven(inputs, y=None)
+            outputs, logits_joint = gpt2_raven(inputs, y=None)
         # note the inputs were pre-pended in gpt2 to add context
-        loss = multi_attr_loss_vec([logits_attr1[:,:-1], logits_attr2[:,:-1], logits_attr3[:,:-1]], inputs)
+        # loss = multi_attr_loss_vec([logits_attr1[:,:-1], logits_attr2[:,:-1], logits_attr3[:,:-1]], inputs)
+        loss = joint_loss_vec(logits_joint[:,:-1], inputs)
         # loss = next_token_loss((attr_seq_tsr_1, attr_seq_tsr_2, attr_seq_tsr_3), inputs)
         loss.backward()
         optimizer.step()
@@ -184,10 +180,11 @@ def main(args):
                 ys = ys.cuda()
                 with torch.no_grad():
                     if is_class_cond:
-                        outputs, logits_attr1, logits_attr2, logits_attr3 = gpt2_raven(inputs, y=ys)
+                        outputs, logits_joint = gpt2_raven(inputs, y=ys)
                     else:
-                        outputs, logits_attr1, logits_attr2, logits_attr3 = gpt2_raven(inputs, y=None)
-                    loss = multi_attr_loss_vec([logits_attr1[:,:-1], logits_attr2[:,:-1], logits_attr3[:,:-1]], inputs)
+                        outputs, logits_joint = gpt2_raven(inputs, y=None)
+                    # loss = multi_attr_loss_vec([logits_attr1[:,:-1], logits_attr2[:,:-1], logits_attr3[:,:-1]], inputs)
+                    loss = joint_loss_vec(logits_joint[:,:-1], inputs)
                 # loss = next_token_loss((attr_seq_tsr_1, attr_seq_tsr_2, attr_seq_tsr_3), inputs)
                 pbar.set_description(f'Loss: {loss.item()}')
                 val_loss_sum.append(loss.item())
@@ -246,7 +243,7 @@ if __name__ == "__main__":
     parser.add_argument('--n_layer', type=int, default=24, help='Number of layers')
     parser.add_argument('--n_head', type=int, default=12, help='Number of attention heads')
     parser.add_argument('--n_class', type=int, default=0, help='Number of classes')
-    parser.add_argument('--embed_type', type=str, default='joint', help='Type of embedding', choices=['sep', 'linear_cmb', "joint"])
+    parser.add_argument('--embed_type', type=str, default='joint', help='Type of embedding', choices=['sep', 'cmb', "joint"])
 
     args = parser.parse_args()
     main(args)

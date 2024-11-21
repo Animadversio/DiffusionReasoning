@@ -198,7 +198,7 @@ class JointIdxGPT2Model(nn.Module):
         if embed_type == "sep":
             self.sep_word_embed = SepWordEmbed(attribute_dims, embed_size=n_embd//3)
             # self.multi_lmhead = SepLMhead(attribute_dims, embed_size=n_embd//3)
-        elif embed_type == "linear_cmb":
+        elif embed_type == "cmb":
             self.sep_word_embed = CmbWordEmbed(attribute_dims, embed_size=n_embd)
             # self.multi_lmhead = CmbLMhead(attribute_dims, embed_size=n_embd)
         elif embed_type == "joint":
@@ -237,6 +237,19 @@ def decode_joint_idx2attr_idx(joint_idxs, attribute_dims=(7,10,10)):
                  (joint_idxs // V3) % V2, 
                  joint_idxs % V3)
     return attr_idxs
+
+
+def joint_loss_vec(logits_joint, targets):
+    # logits1, logits2, logits3 = outputs[0], outputs[1], outputs[2]
+    # loss1 = loss_fn(logits1.reshape(-1, logits1.size(-1)), targets[..., 0].view(-1))
+    # loss2 = loss_fn(logits2.reshape(-1, logits2.size(-1)), targets[..., 1].view(-1))
+    # loss3 = loss_fn(logits3.reshape(-1, logits3.size(-1)), targets[..., 2].view(-1))
+    joint_idxs = encode_attr_idx2joint_idx([targets[..., 0].view(-1), 
+                                            targets[..., 1].view(-1), 
+                                            targets[..., 2].view(-1)], attribute_dims=(7,10,10))
+    # return loss1 + loss2 + loss3
+    loss = F.cross_entropy(logits_joint.reshape(-1, logits_joint.size(-1)), joint_idxs)
+    return loss
 
 
 # %% [markdown]
