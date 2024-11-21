@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH -t 15:00:00          # Runtime in D-HH:MM, minimum of 10 minutes
+#SBATCH -t 35:00:00          # Runtime in D-HH:MM, minimum of 10 minutes
 #SBATCH -p kempner_h100      # Partition to submit to
 #SBATCH -c 16               # Number of cores (-c)
 #SBATCH --mem=130G           # Memory pool for all cores (see also --mem-per-cpu)
 #SBATCH --gres=gpu:1
-#SBATCH --array 1-3
+#SBATCH --array 4-6
 #SBATCH -o /n/home12/binxuwang/Github/DiffusionReasoning/cluster_log/GPT_RAVEN_joint_train_%A_%a.out  # File to which STDOUT will be written, %j inserts jobid
 #SBATCH -e /n/home12/binxuwang/Github/DiffusionReasoning/cluster_log/GPT_RAVEN_joint_train_%A_%a.err  # File to which STDERR will be written, %j inserts jobid
 #SBATCH --mail-user=binxu_wang@hms.harvard.edu
