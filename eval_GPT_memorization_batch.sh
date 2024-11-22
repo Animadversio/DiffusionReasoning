@@ -4,7 +4,7 @@
 #SBATCH -c 16               # Number of cores (-c)
 #SBATCH --mem=160G           # Memory pool for all cores (see also --mem-per-cpu)
 #SBATCH --gres=gpu:1
-#SBATCH --array 1-12
+#SBATCH --array 13-15
 #SBATCH -o /n/home12/binxuwang/Github/DiffusionReasoning/cluster_log/GPT_memorization_%A_%a.out  
 #SBATCH -e /n/home12/binxuwang/Github/DiffusionReasoning/cluster_log/GPT_memorization_%A_%a.err  
 #SBATCH --mail-user=binxu_wang@hms.harvard.edu
@@ -23,13 +23,10 @@ GPT2_small_joint_lm_sep_emb_RAVEN_uncond_heldout0_stream0_016M-20241121-140338
 GPT2_small_joint_lm_sep_emb_RAVEN_uncond_heldout0_stream0_16M-20241120-200321
 GPT2_small_joint_lm_sep_emb_RAVEN_uncond_heldout0_stream16M-20241121-140316
 GPT2_small_joint_lm_sep_emb_RAVEN_uncond_heldout0_stream1_6M-20241121-140306
+GPT2_medium_joint_lm_cmb_emb_RAVEN_uncond_heldout0_stream0_16M-20241120-202833
+GPT2_medium_joint_lm_joint_emb_RAVEN_uncond_heldout0_stream0_16M-20241120-202725
+GPT2_medium_joint_lm_sep_emb_RAVEN_uncond_heldout0_stream0_16M-20241120-202729
 '
-# BigBlnrX3_new_stream0_016M_RAVEN10_abstract_20240816-0104
-# BigBlnrX3_new_stream16M_RAVEN10_abstract_20240705-0237
-# BigBlnrX3_new_stream1_6M_RAVEN10_abstract_20240705-1903
-# WideBlnrX3_new_stream0_016M_RAVEN10_abstract_20240816-0105
-# WideBlnrX3_new_stream16M_RAVEN10_abstract_20240705-0023
-# WideBlnrX3_new_stream1_6M_RAVEN10_abstract_20240705-1908
 
 export param_name="$(echo "$param_list" | head -n $SLURM_ARRAY_TASK_ID | tail -1)"
 echo "$param_name"
