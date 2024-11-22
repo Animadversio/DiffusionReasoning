@@ -49,34 +49,36 @@ figroot = "/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/Figures/Di
 
 # %% [markdown]
 # %%
-syndf_GPT = pd.read_csv(join(tabdir, "GPT_raven_tensorboard_data_last10.csv"), index_col=0)
-# tb_data_col = pkl.load(open(join(tabdir, "GPT2_raven_tensorboard_raw_data.pkl"), "rb"))
+# syndf_GPT = pd.read_csv(join(tabdir, "GPT_raven_tensorboard_data_last10.csv"), index_col=0)
+# # tb_data_col = pkl.load(open(join(tabdir, "GPT2_raven_tensorboard_raw_data.pkl"), "rb"))
 
-# %% [markdown]
-# ### Mass produce
+# # %% [markdown]
+# # ### Mass produce
 
-# %%
-syndf_GPT["joint_readout"] = syndf_GPT.index.map(lambda x: "joint_lm" in x)
-success_syndf = syndf_GPT.query("step > 900000 and joint_readout == True")
-# expfullname = 'GPT2_medium_RAVEN_uncond_heldout0_stream0_16M-20240820-024019/tensorboard_logs'
-for expfullname in success_syndf.full_name.values:
-    print(expfullname)
-    expname = expfullname.split("/tensorboard_logs")[0]
+# # %%
+# syndf_GPT["joint_readout"] = syndf_GPT.index.map(lambda x: "joint_lm" in x)
+# success_syndf = syndf_GPT.query("step > 900000 and joint_readout == True")
+# # expfullname = 'GPT2_medium_RAVEN_uncond_heldout0_stream0_16M-20240820-024019/tensorboard_logs'
+# for expfullname in success_syndf.full_name.values:
+#     print(expfullname)
+# expname = expfullname.split("/tensorboard_logs")[0]
+
+def eval_memorization(expname):
     figexpdir = join(figroot, expname)
     os.makedirs(figexpdir, exist_ok=True)
-    
+
     prefix = "eval_step" if "stream" in expname else "eval_epoch"
     if os.path.exists(join(figexpdir, "memorization_stats_train_set.csv")) and \
         os.path.exists(join(figexpdir, "memorization_stats_ctrl_set.csv")):
         print("Memorization stats [train set] and [ctrl set] already exist, skip")
-        continue
+        return 
     eval_col = sweep_collect_eval_data(expname, GPT_exproot, prefix=prefix)
     sample_col = {epoch: seqtsr2imgtsr(epoch_stats['eval_complete_abinit'], h=3, w=3, p=3, R=3) for epoch, epoch_stats in eval_col.items()}
     dataset_size = extract_and_convert(expname)
     examples_per_rule = int(dataset_size * 1E6 / 40)
     print(f"examples_per_rule: {examples_per_rule}")
     if examples_per_rule > 100000:
-        continue
+        return 
     if os.path.exists(join(figexpdir, "memorization_stats_train_set.csv")):
         print("Memorization stats [train set] already exists, skip")
         mem_stats_df = pd.read_csv(join(figexpdir, "memorization_stats_train_set.csv"))
@@ -87,11 +89,11 @@ for expfullname in success_syndf.full_name.values:
         train_X_sample_set, train_X_row_set, train_X_panel_set, train_X_row_set_attr_col, train_X_panel_set_attr_col = extract_training_set_row_panel_sets(train_tsr_X)
         mem_stats_df = compute_memorization_tab_through_training(sample_col, eval_col, train_X_sample_set, train_X_row_set, train_X_panel_set, train_X_row_set_attr_col, train_X_panel_set_attr_col, abinit=True)
         mem_stats_df.to_csv(join(figexpdir, "memorization_stats_train_set.csv"))
-    
+
     print(mem_stats_df.tail(5))
     figh = visualize_memorization_dynamics(mem_stats_df, expname=expname)
     saveallforms(figexpdir, "memorization_dynamics_train_set", figh)
-    
+
     if os.path.exists(join(figexpdir, "memorization_stats_ctrl_set.csv")):
         print("Memorization stats [ctrl set] already exists, skip")
         mem_stats_ctrl_df = pd.read_csv(join(figexpdir, "memorization_stats_ctrl_set.csv"))
@@ -103,11 +105,18 @@ for expfullname in success_syndf.full_name.values:
             print(e)
             print("Not enough control set, skip")
             print("samples in control set:", examples_per_rule)   
-            continue
+            return 
         mem_stats_ctrl_df = compute_memorization_tab_through_training(sample_col, eval_col, ctrl_X_sample_set, ctrl_X_row_set, ctrl_X_panel_set, ctrl_X_row_set_attr_col, ctrl_X_panel_set_attr_col, abinit=True)
         mem_stats_ctrl_df.to_csv(join(figexpdir, "memorization_stats_ctrl_set.csv"))
-    
+
     print(mem_stats_ctrl_df.tail(5))
     figh2 = visualize_memorization_dynamics(mem_stats_ctrl_df, expname=expname+' Control set')
     saveallforms(figexpdir, "memorization_dynamics_ctrl_set", figh2)
 
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--expname", type=str, required=True)
+    args = parser.parse_args()
+    eval_memorization(args.expname)
