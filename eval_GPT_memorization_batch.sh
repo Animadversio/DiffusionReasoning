@@ -4,7 +4,7 @@
 #SBATCH -c 16               # Number of cores (-c)
 #SBATCH --mem=160G           # Memory pool for all cores (see also --mem-per-cpu)
 #SBATCH --gres=gpu:1
-#SBATCH --array 13-15
+#SBATCH --array 13-18
 #SBATCH -o /n/home12/binxuwang/Github/DiffusionReasoning/cluster_log/GPT_memorization_%A_%a.out  
 #SBATCH -e /n/home12/binxuwang/Github/DiffusionReasoning/cluster_log/GPT_memorization_%A_%a.err  
 #SBATCH --mail-user=binxu_wang@hms.harvard.edu
@@ -26,7 +26,9 @@ GPT2_small_joint_lm_sep_emb_RAVEN_uncond_heldout0_stream1_6M-20241121-140306
 GPT2_medium_joint_lm_cmb_emb_RAVEN_uncond_heldout0_stream0_16M-20241120-202833
 GPT2_medium_joint_lm_joint_emb_RAVEN_uncond_heldout0_stream0_16M-20241120-202725
 GPT2_medium_joint_lm_sep_emb_RAVEN_uncond_heldout0_stream0_16M-20241120-202729
-'
+GPT2_medium_joint_lm_sep_emb_RAVEN_uncond_heldout0_stream0_016M-20241122-165627
+GPT2_medium_joint_lm_sep_emb_RAVEN_uncond_heldout0_stream1_6M-20241122-165756
+GPT2_medium_joint_lm_sep_emb_RAVEN_uncond_heldout0_stream16M-20241122-165705'
 
 export param_name="$(echo "$param_list" | head -n $SLURM_ARRAY_TASK_ID | tail -1)"
 echo "$param_name"
@@ -44,6 +46,6 @@ cd /n/home12/binxuwang/Github/DiffusionReasoning/
 
 ## training
 python GPT_eval_memorization_script_CLI.py \
-        --expname $param_name
+        --expname $param_name --recompute
 
 

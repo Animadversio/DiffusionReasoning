@@ -63,12 +63,13 @@ figroot = "/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/Figures/Di
 #     print(expfullname)
 # expname = expfullname.split("/tensorboard_logs")[0]
 
-def eval_memorization(expname):
+def eval_memorization(expname, recompute=False):
     figexpdir = join(figroot, expname)
     os.makedirs(figexpdir, exist_ok=True)
 
     prefix = "eval_step" if "stream" in expname else "eval_epoch"
-    if os.path.exists(join(figexpdir, "memorization_stats_train_set.csv")) and \
+    if not recompute and \
+        os.path.exists(join(figexpdir, "memorization_stats_train_set.csv")) and \
         os.path.exists(join(figexpdir, "memorization_stats_ctrl_set.csv")):
         print("Memorization stats [train set] and [ctrl set] already exist, skip")
         return 
@@ -79,7 +80,7 @@ def eval_memorization(expname):
     print(f"examples_per_rule: {examples_per_rule}")
     if examples_per_rule > 100000:
         return 
-    if os.path.exists(join(figexpdir, "memorization_stats_train_set.csv")):
+    if not recompute and os.path.exists(join(figexpdir, "memorization_stats_train_set.csv")):
         print("Memorization stats [train set] already exists, skip")
         mem_stats_df = pd.read_csv(join(figexpdir, "memorization_stats_train_set.csv"))
     else:
@@ -94,7 +95,7 @@ def eval_memorization(expname):
     figh = visualize_memorization_dynamics(mem_stats_df, expname=expname)
     saveallforms(figexpdir, "memorization_dynamics_train_set", figh)
 
-    if os.path.exists(join(figexpdir, "memorization_stats_ctrl_set.csv")):
+    if not recompute and os.path.exists(join(figexpdir, "memorization_stats_ctrl_set.csv")):
         print("Memorization stats [ctrl set] already exists, skip")
         mem_stats_ctrl_df = pd.read_csv(join(figexpdir, "memorization_stats_ctrl_set.csv"))
     else:
@@ -118,5 +119,6 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--expname", type=str, required=True)
+    parser.add_argument("--recompute", action="store_true")
     args = parser.parse_args()
-    eval_memorization(args.expname)
+    eval_memorization(args.expname, args.recompute)

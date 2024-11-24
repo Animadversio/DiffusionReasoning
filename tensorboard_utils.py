@@ -39,6 +39,21 @@ def extract_all_runs(root_logdir):
     return run_dataframes
 
 
+def extract_all_runs_update(root_logdir, runs_to_update=None):
+    run_dataframes = {}
+    for root, dirs, files in os.walk(root_logdir):
+        for subdir in sorted(dirs):
+            run_path = os.path.join(root, subdir)
+            if os.path.isdir(run_path):
+                relative_path = os.path.relpath(run_path, root_logdir)
+                if runs_to_update is not None and relative_path not in runs_to_update:
+                    continue
+                df = extract_tensorboard_data_from_run(run_path)
+                if not df.empty:
+                    run_dataframes[relative_path] = df
+                    print(f"Extracted data from {relative_path}")
+    return run_dataframes
+
 
 def extract_last_step_summary(tb_data_col, simplify_runname=None, exclude_runs=()):
     # Create an empty dataframe
