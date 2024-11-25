@@ -300,13 +300,15 @@ def seqtsr2attrtsr(seqtsr, h=3, w=3, p=3, R=3):
     attrtsr = einops.rearrange(seqtsr, 'B (R p h w) attr -> B R p (h w) attr', h=h, w=w, p=p, R=R)
     return attrtsr
 
-def compute_rule_statistics(r3_list, r2_list, rule_col):
-    r3_count = sum([len(x) > 0 for x in r3_list])
-    r2_count = sum([len(x) > 0 for x in r2_list])
-    rule_flatten = np.array(rule_col, dtype=object).flatten() # [3 * 1024]
+def compute_rule_statistics(r3_list, r2_list, rule_col, verbose=True):
+    C3_count = sum([len(x) > 0 for x in r3_list])
+    C2_count = sum([len(x) > 0 for x in r2_list])
+    rule_flatten = sum(rule_col, []) # rule_flatten = np.array(rule_col, dtype=object).flatten() # [3 * 1024]
     anyvalid_count = sum([len(x) > 0 for x in rule_flatten])
     total = len(r3_list)
-    return r3_count, r2_count, anyvalid_count, total
+    if verbose:
+        print(f"C3: {C3_count}/{total} ({C3_count/total:.2f}), C3 + C2: {C3_count + C2_count}/{total} ({(C3_count + C2_count)/total:.2f}), AnyValid: {anyvalid_count}/{total*3} ({anyvalid_count/total/3:.2f})") 
+    return C3_count, C2_count, anyvalid_count, total
 
 # %%
 @torch.no_grad()

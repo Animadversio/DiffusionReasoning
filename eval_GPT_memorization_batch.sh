@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH -t 1:00:00          # Runtime in D-HH:MM, minimum of 10 minutes
-#SBATCH -p kempner_h100      # Partition to submit to
+#SBATCH -p sapphire         # Partition to submit to # kempner_h100
 #SBATCH -c 16               # Number of cores (-c)
 #SBATCH --mem=160G           # Memory pool for all cores (see also --mem-per-cpu)
-#SBATCH --gres=gpu:1
+#  --gres=gpu:
 #SBATCH --array 13-18
 #SBATCH -o /n/home12/binxuwang/Github/DiffusionReasoning/cluster_log/GPT_memorization_%A_%a.out  
 #SBATCH -e /n/home12/binxuwang/Github/DiffusionReasoning/cluster_log/GPT_memorization_%A_%a.err  
