@@ -74,7 +74,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--explabel', type=str, default='bert_raven', help='Experiment label')
 parser.add_argument('--cmb_per_class', type=int, default=4000, help='Number of combinations per class')
-parser.add_argument('--heldout_ids', type=int, nargs='+', default=[1, 16, 20, 34, 37], help='IDs to hold out')
+parser.add_argument('--heldout_ids', type=int, nargs='*', default=[1, 16, 20, 34, 37], help='IDs to hold out')
 parser.add_argument('--batch_size', type=int, default=64)
 parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate')
 parser.add_argument('--num_warmup_steps', type=int, default=1000)
