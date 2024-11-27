@@ -22,6 +22,7 @@ from tqdm.auto import trange
 from torch.utils.data import DataLoader, TensorDataset
 from transformers import AdamW, get_linear_schedule_with_warmup
 from torch.utils.tensorboard import SummaryWriter
+from sklearn.metrics import confusion_matrix
 # Custom model components
 import sys
 sys.path.append('/n/home12/binxuwang/Github/DiffusionReasoning/')
@@ -145,8 +146,9 @@ del attr_seq_tsr
 saveroot = "/n/holylfs06/LABS/kempner_fellow_binxuwang/Users/binxuwang/DL_Projects/BERT_raven_classify"
 expdir = join(saveroot, f"{explabel}-{time.strftime('%Y%m%d-%H%M%S')}")
 ckptdir = join(expdir, "ckpt")
+evaldir = join(expdir, "eval")
 # sampledir = join(expdir, "samples")
-for d in [expdir, ckptdir]: # , sampledir
+for d in [expdir, ckptdir, evaldir]: # , sampledir
     os.makedirs(d, exist_ok=True)
 # Initialize TensorBoard writer
 writer = SummaryWriter(log_dir=join(expdir, 'tensorboard_logs'))
@@ -210,24 +212,29 @@ for step in pbar:
         with torch.no_grad():
             val_loss = 0
             acc_cnt = 0
+            pred_ys = []
             for inputs, ys in val_loader_eval:
                 inputs = inputs.cuda()
                 ys = ys.cuda()
                 logits, outputs = bert_raven(inputs, y=ys)
                 loss = F.cross_entropy(logits, ys)
+                pred_y = logits.argmax(dim=-1)
                 val_loss += loss.item()
-                acc_cnt += (logits.argmax(dim=-1) == ys).float().sum().item()
+                acc_cnt += (pred_y == ys).float().sum().item()
+                pred_ys.append(pred_y)
             acc_ratio = acc_cnt / len(val_loader_eval.dataset)
             loss_avg = val_loss / len(val_loader_eval)
+            pred_ys = torch.cat(pred_ys, dim=0)
             print(f"Epoch {epoch} Step {step} Validation loss: {loss_avg}, accuracy: {acc_ratio}")
             
             # Log validation metrics
             writer.add_scalar('Valid/Loss', loss_avg, step)
             writer.add_scalar('Valid/Accuracy', acc_ratio, step)
+            th.save({"pred_ys": pred_ys.cpu(), "cm": confusion_matrix(pred_ys.cpu(), y_rule_val_eval)}, join(expdir, f'pred_ys_step{step}.pth'))
             
         bert_raven.train()
     
     if (step + 1) % save_ckpt_every_step == 0 or step == total_steps - 1:
-        torch.save(bert_raven.state_dict(), f'bert_raven_step{step}.pth')
+        torch.save(bert_raven.state_dict(), join(ckptdir, f'bert_raven_step{step}.pth'))
 
 writer.close()
